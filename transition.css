@@ -1,0 +1,148 @@
+/* ==========================================
+   画面遷移アニメーション
+   ========================================== */
+
+/* --- 遷移オーバーレイ --- */
+#transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9000;
+    pointer-events: none;
+    opacity: 0;
+}
+
+#transition-overlay.transition-active {
+    pointer-events: all;
+}
+
+/* === フェード（暗転） === */
+#transition-overlay.fade-black {
+    background: #000;
+}
+
+#transition-overlay.fade-white {
+    background: #fff;
+}
+
+#transition-overlay.fade-in {
+    animation: transFadeIn 0.35s ease-out forwards;
+}
+
+#transition-overlay.fade-out {
+    animation: transFadeOut 0.35s ease-in forwards;
+}
+
+@keyframes transFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes transFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+/* === バトル突入ワイプ（上下から閉じる） === */
+.battle-wipe-top,
+.battle-wipe-bottom {
+    position: fixed;
+    left: 0;
+    width: 100%;
+    height: 55%;
+    z-index: 9001;
+    pointer-events: none;
+}
+
+.battle-wipe-top {
+    top: -55%;
+    background: linear-gradient(180deg, #000 80%, #1a0a2e);
+}
+
+.battle-wipe-bottom {
+    bottom: -55%;
+    background: linear-gradient(0deg, #000 80%, #1a0a2e);
+}
+
+.battle-wipe-top.wipe-close {
+    animation: wipeTopClose 0.5s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+
+.battle-wipe-bottom.wipe-close {
+    animation: wipeBottomClose 0.5s cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+
+.battle-wipe-top.wipe-open {
+    animation: wipeTopOpen 0.5s 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.battle-wipe-bottom.wipe-open {
+    animation: wipeBottomOpen 0.5s 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes wipeTopClose {
+    from { top: -55%; }
+    to   { top: 0; }
+}
+
+@keyframes wipeBottomClose {
+    from { bottom: -55%; }
+    to   { bottom: 0; }
+}
+
+@keyframes wipeTopOpen {
+    from { top: 0; }
+    to   { top: -55%; }
+}
+
+@keyframes wipeBottomOpen {
+    from { bottom: 0; }
+    to   { bottom: -55%; }
+}
+
+/* ワイプVSテキスト */
+.wipe-vs {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 60px;
+    font-weight: 900;
+    color: #ffcc00;
+    text-shadow: 0 0 30px rgba(255,200,0,0.7), 3px 3px 0 #000;
+    letter-spacing: 10px;
+    z-index: 9002;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.wipe-vs.vs-show {
+    animation: vsShow 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.wipe-vs.vs-hide {
+    animation: vsHide 0.3s ease-in forwards;
+}
+
+@keyframes vsShow {
+    0%   { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
+    60%  { transform: translate(-50%, -50%) scale(1.2) rotate(3deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes vsHide {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    to   { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* === 画面登場アニメ（各画面に付与） === */
+.screen-enter {
+    animation: screenSlideUp 0.4s ease-out both;
+}
+
+@keyframes screenSlideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to   { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>九九最強王 ポケモンバトル</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="effects.css">
+<link rel="stylesheet" href="transition.css">
+</head>
+<body>
+
+<div id="app">
+
+    <!-- ================= タイトル画面 ================= -->
+    <div id="title-screen" class="screen">
+        <div id="title-crown">👑</div>
+        <h1 id="title-logo">九九<span class="logo-accent">最強王</span></h1>
+        <div id="title-sub">ポケモンバトル</div>
+        <img id="title-pika" src="img/ピカチュウ01.gif" alt="ピカチュウ">
+        <div id="title-tag">ポケモンと 九九マスターへの たび</div>
+        <button id="title-start-btn" class="big-btn">はじめる</button>
+    </div>
+
+    <!-- ================= マップ画面 ================= -->
+    <div id="map-screen" class="screen" style="display:none;">
+        <div class="map-header">
+            <div id="map-badges"></div>
+            <div id="map-stats"></div>
+        </div>
+        <div class="map-menu">
+            <button id="map-kuku-btn" class="menu-btn">🗺️ くくマップ</button>
+            <button id="map-dex-btn" class="menu-btn">📖 ずかん</button>
+            <button id="map-dress-btn" class="menu-btn">🎀 きせかえ</button>
+            <button id="map-metamon-btn" class="menu-btn"></button>
+            <button id="map-settings-btn" class="menu-btn">⚙️ せってい</button>
+        </div>
+        <div id="map-stages"></div>
+    </div>
+
+    <!-- ================= バトル画面 ================= -->
+    <div id="battle-screen" class="screen" style="display:none;">
+
+        <div class="battle-top">
+            <span id="battle-stage-label"></span>
+            <button id="battle-quit-btn">にげる</button>
+        </div>
+
+        <div id="battle-commentary"></div>
+
+        <div id="battle-field">
+            <!-- 敵エリア -->
+            <div id="battle-enemy-area">
+                <div class="fighter-info">
+                    <span id="enemy-name" class="fighter-name">？？？</span>
+                    <div class="hp-bar-wrap">
+                        <div class="hp-bar"><div id="enemy-hp-fill" class="hp-fill"></div></div>
+                        <span id="enemy-hp-text" class="hp-text">0/0</span>
+                    </div>
+                </div>
+                <img id="enemy-img" src="img/ピチュー01.gif" alt="てき">
+            </div>
+
+            <!-- 味方エリア -->
+            <div id="battle-player-area">
+                <img id="player-img" src="img/ピカチュウ01.gif" alt="ピカチュウ">
+                <img id="battle-face" src="img/ピカチュウフェイス01.gif" alt="">
+                <div class="player-status">
+                    <div id="battle-hearts"></div>
+                    <div id="battle-volt-wrap">
+                        <div id="battle-volt-label">⚡ゲージ 0/5</div>
+                        <div class="volt-bar"><div id="battle-volt-fill"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="battle-combo"></div>
+
+            <!-- エフェクトレイヤー -->
+            <div id="effect-layer">
+                <div id="fx-fire" class="fx-fire">
+                    <div class="fx-fire-particle"></div>
+                    <div class="fx-fire-particle"></div>
+                    <div class="fx-fire-particle"></div>
+                    <div class="fx-fire-particle"></div>
+                    <div class="fx-fire-particle"></div>
+                </div>
+                <div id="fx-thunder" class="fx-thunder">
+                    <svg class="fx-thunder-bolt" viewBox="0 0 40 120" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="20,0 12,35 25,40 8,75 22,78 5,120" fill="none" stroke="#b4dcff" stroke-width="3" stroke-linecap="round"/>
+                        <polyline points="20,0 12,35 25,40 8,75 22,78 5,120" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <svg class="fx-thunder-bolt" viewBox="0 0 32 100" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="16,0 22,30 10,38 24,65 12,70 20,100" fill="none" stroke="#b4dcff" stroke-width="2.5" stroke-linecap="round"/>
+                        <polyline points="16,0 22,30 10,38 24,65 12,70 20,100" fill="none" stroke="#ffffff" stroke-width="1" stroke-linecap="round"/>
+                    </svg>
+                    <div class="fx-thunder-flash"></div>
+                </div>
+                <div id="fx-enemy-attack" class="fx-enemy-attack">
+                    <div class="fx-claw"></div>
+                    <div class="fx-claw"></div>
+                    <div class="fx-claw"></div>
+                    <div class="fx-damage-flash"></div>
+                </div>
+                <div id="fx-correct-flash" class="fx-correct-flash"></div>
+                <div id="fx-correct-circle" class="fx-correct-circle"></div>
+                <div id="fx-wrong-flash" class="fx-wrong-flash"></div>
+                <div id="fx-wrong-x" class="fx-wrong-x"></div>
+                <div id="fx-burst" class="fx-burst">
+                    <div class="fx-burst-ring"></div>
+                    <div class="fx-burst-ring"></div>
+                    <div class="fx-burst-ring"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                    <div class="fx-burst-spark"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 問題エリア -->
+        <div id="battle-question-card">
+            <div id="battle-timer-wrap" style="display:none;">
+                <div class="timer-bar"><div id="battle-timer-fill"></div></div>
+            </div>
+            <div id="battle-question-yomi"></div>
+            <div id="battle-question">？ × ？ = ?</div>
+            <div id="battle-hint" style="display:none;"></div>
+        </div>
+
+        <!-- 4択 -->
+        <div id="battle-options"></div>
+
+        <!-- 唱え読みテロップ（誤答時） -->
+        <div id="battle-yomi-telop" style="display:none;"></div>
+
+        <!-- おぼえタイム -->
+        <div id="battle-oboe" style="display:none;">
+            <div id="battle-oboe-card">
+                <div id="battle-oboe-title"></div>
+                <div id="battle-oboe-list"></div>
+                <button id="battle-oboe-skip" class="big-btn btn-small">バトルへ →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 勝利画面 ================= -->
+    <div id="victory-screen" class="screen" style="display:none;">
+        <h2 id="victory-title">しょうり！</h2>
+        <div id="victory-capture">
+            <img id="victory-pokemon" src="" alt="">
+            <img id="victory-ball" src="img/モンスターボール.gif" alt="">
+        </div>
+        <div id="victory-capture-text"></div>
+        <div id="victory-stars"></div>
+        <div id="victory-stats"></div>
+        <div id="victory-costumes"></div>
+        <div id="victory-review" class="review-box"></div>
+        <div class="result-btns">
+            <button id="victory-retry-btn" class="big-btn btn-sub">もういちど</button>
+            <button id="victory-map-btn" class="big-btn">マップへ</button>
+        </div>
+    </div>
+
+    <!-- ================= 敗北画面 ================= -->
+    <div id="defeat-screen" class="screen" style="display:none;">
+        <h2 id="defeat-title">ピカチュウは つかれた…</h2>
+        <img id="defeat-pika" src="img/ピカチュウフェイス07.gif" alt="">
+        <div id="defeat-msg">だいじょうぶ！ なんかいでも ちょうせんできるよ！</div>
+        <div id="defeat-review" class="review-box"></div>
+        <div class="result-btns">
+            <button id="defeat-retry-btn" class="big-btn">もういちど！</button>
+            <button id="defeat-map-btn" class="big-btn btn-sub">マップへ</button>
+        </div>
+    </div>
+
+    <!-- ================= エンディング ================= -->
+    <div id="ending-screen" class="screen" style="display:none;">
+        <h2 id="ending-title"></h2>
+        <div id="ending-parade-wrap"><div id="ending-parade"></div></div>
+        <img id="ending-pika" src="img/ピカチュウ_お祝い.gif" alt="">
+        <div id="ending-msg"></div>
+        <button id="ending-close-btn" class="big-btn">やったー！</button>
+    </div>
+
+    <!-- ================= くくマップ ================= -->
+    <div id="kuku-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>🗺️ くくマップ</h2>
+            <button id="kuku-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div id="kuku-stats"></div>
+        <div id="kuku-grid"></div>
+    </div>
+
+    <!-- ================= ずかん ================= -->
+    <div id="dex-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>📖 ポケモンずかん</h2>
+            <button id="dex-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div id="dex-count"></div>
+        <div id="dex-grid"></div>
+    </div>
+
+    <!-- ================= きせかえ ================= -->
+    <div id="dress-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>🎀 きせかえ</h2>
+            <button id="dress-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div id="dress-grid"></div>
+    </div>
+
+    <!-- ================= せってい ================= -->
+    <div id="settings-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>⚙️ せってい</h2>
+            <button id="settings-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div class="settings-list">
+            <div class="settings-row"><span>こうかおん</span><button id="settings-se" class="toggle-btn">ON</button></div>
+            <div class="settings-row"><span>おんがく</span><button id="settings-bgm" class="toggle-btn">ON</button></div>
+            <div class="settings-row"><span>ゆっくりモード<br><small>じかんせいげんが 1.5ばいに のびる</small></span><button id="settings-slow" class="toggle-btn">OFF</button></div>
+            <div class="settings-row"><span>おうちのひとへ<br><small>がくしゅうレポート</small></span><button id="settings-report-btn" class="toggle-btn">みる</button></div>
+            <div class="settings-row settings-danger"><span>さいしょから やりなおす</span><button id="settings-reset-btn" class="toggle-btn">データを けす</button></div>
+        </div>
+    </div>
+
+    <!-- ================= おうちのひとへ ================= -->
+    <div id="report-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>📊 学習レポート</h2>
+            <button id="report-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div id="report-summary"></div>
+        <h3>段別の正答率</h3>
+        <div id="report-dans"></div>
+        <h3>苦手な問題 ワースト10</h3>
+        <div id="report-weak"></div>
+        <p class="report-note">※「くくマップ」の画面でも、81マスの習熟状況（金＝3秒以内に正解3回）が確認できます。</p>
+    </div>
+
+    <!-- ================= モーダル（#app直下: 画面スクロールに影響されない） ================= -->
+    <div id="kuku-practice" style="display:none;">
+        <div id="kuku-practice-card">
+            <div id="kuku-practice-yomi"></div>
+            <div id="kuku-practice-q"></div>
+            <div id="kuku-practice-options"></div>
+            <div id="kuku-practice-feedback"></div>
+            <button id="kuku-practice-close-btn" class="back-btn">とじる</button>
+        </div>
+    </div>
+    <div id="dex-big" style="display:none;">
+        <img id="dex-big-img" src="" alt="">
+        <div id="dex-big-name"></div>
+        <div class="dex-big-hint">タップで とじる</div>
+    </div>
+
+</div>
+
+<!-- レベルアップ演出（画面全体用） -->
+<div id="fx-levelup-flash" class="fx-levelup-flash"></div>
+<div id="fx-levelup-text" class="fx-levelup-text">LEVEL UP!</div>
+
+<!-- 画面遷移オーバーレイ -->
+<div id="transition-overlay"></div>
+<div id="wipe-top" class="battle-wipe-top"></div>
+<div id="wipe-bottom" class="battle-wipe-bottom"></div>
+<div id="wipe-vs" class="wipe-vs">VS</div>
+
+<script src="config.js"></script>
+<script src="state.js"></script>
+<script src="storage.js"></script>
+<script src="questions.js"></script>
+<script src="sound.js"></script>
+<script src="transition.js"></script>
+<script src="effects.js"></script>
+<script src="ui.js"></script>
+<script src="battle.js"></script>
+<script src="screens.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,502 @@
+/* ==========================================
+   バトルエフェクト CSS
+   味方攻撃（炎・雷）、敵攻撃（爪痕）、
+   コンボバースト、ダメージ数値 など
+   ========================================== */
+
+/* --- エフェクトコンテナ（バトル画面上に重ねる） --- */
+#effect-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+    overflow: hidden;
+}
+
+/* ==========================================
+   1. 炎エフェクト（味方の通常攻撃）
+   ========================================== */
+.fx-fire {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+}
+
+.fx-fire.fx-active {
+    animation: fxFireFlash 0.5s ease-out forwards;
+}
+
+.fx-fire-particle {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(3px);
+}
+
+.fx-fire-particle:nth-child(1) {
+    width: 30px; height: 30px;
+    background: radial-gradient(circle, #ffcc00, #ff6600, transparent);
+    top: 20%; left: 45%;
+    animation: fxFireRise 0.6s ease-out forwards;
+}
+.fx-fire-particle:nth-child(2) {
+    width: 22px; height: 22px;
+    background: radial-gradient(circle, #fff, #ff4400, transparent);
+    top: 25%; left: 52%;
+    animation: fxFireRise 0.5s 0.05s ease-out forwards;
+}
+.fx-fire-particle:nth-child(3) {
+    width: 26px; height: 26px;
+    background: radial-gradient(circle, #ffee00, #ff3300, transparent);
+    top: 18%; left: 40%;
+    animation: fxFireRise 0.55s 0.1s ease-out forwards;
+}
+.fx-fire-particle:nth-child(4) {
+    width: 18px; height: 18px;
+    background: radial-gradient(circle, #fff, #ff8800, transparent);
+    top: 22%; left: 58%;
+    animation: fxFireRise 0.5s 0.08s ease-out forwards;
+}
+.fx-fire-particle:nth-child(5) {
+    width: 24px; height: 24px;
+    background: radial-gradient(circle, #ffcc00, #ff2200, transparent);
+    top: 15%; left: 48%;
+    animation: fxFireRise 0.65s 0.03s ease-out forwards;
+}
+
+@keyframes fxFireFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes fxFireRise {
+    0%   { transform: translateY(0) scale(0.3); opacity: 1; }
+    60%  { transform: translateY(-40px) scale(1.2); opacity: 0.8; }
+    100% { transform: translateY(-70px) scale(0.5); opacity: 0; }
+}
+
+/* ==========================================
+   2. 雷エフェクト（スピードボーナス時）
+   ========================================== */
+.fx-thunder {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+}
+
+.fx-thunder.fx-active {
+    animation: fxThunderFlash 0.4s ease-out forwards;
+}
+
+@keyframes fxThunderFlash {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    20%  { opacity: 0.2; }
+    30%  { opacity: 1; }
+    50%  { opacity: 0.6; }
+    100% { opacity: 0; }
+}
+
+/* 稲妻SVGライン */
+.fx-thunder-bolt {
+    position: absolute;
+    top: 0;
+    height: 50%;
+    filter: drop-shadow(0 0 8px rgba(180, 220, 255, 0.9))
+            drop-shadow(0 0 16px rgba(100, 160, 255, 0.6));
+}
+
+.fx-thunder-bolt:nth-child(1) { left: 35%; width: 40px; }
+.fx-thunder-bolt:nth-child(2) { left: 55%; width: 32px; animation-delay: 0.06s; }
+
+/* 画面フラッシュ */
+.fx-thunder-flash {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(200, 220, 255, 0.25);
+    animation: fxScreenFlash 0.3s ease-out forwards;
+}
+
+@keyframes fxScreenFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* ==========================================
+   3. 敵攻撃エフェクト（爪痕 / 衝撃波）
+   ========================================== */
+.fx-enemy-attack {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+}
+
+.fx-enemy-attack.fx-active {
+    animation: fxEnemyFlash 0.5s ease-out forwards;
+}
+
+@keyframes fxEnemyFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* 爪痕ライン 3本 */
+.fx-claw {
+    position: absolute;
+    width: 6px;
+    height: 80px;
+    background: linear-gradient(180deg, transparent, #ff4444, #ff0000, #ff4444, transparent);
+    border-radius: 3px;
+    transform: rotate(-25deg);
+    filter: blur(1px);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+}
+
+.fx-claw:nth-child(1) {
+    top: 55%; left: 30%;
+    animation: fxClawSlash 0.35s ease-out forwards;
+}
+.fx-claw:nth-child(2) {
+    top: 52%; left: 42%;
+    animation: fxClawSlash 0.35s 0.05s ease-out forwards;
+}
+.fx-claw:nth-child(3) {
+    top: 58%; left: 54%;
+    animation: fxClawSlash 0.35s 0.1s ease-out forwards;
+}
+
+@keyframes fxClawSlash {
+    0%   { transform: rotate(-25deg) scaleY(0) translateY(-30px); opacity: 1; }
+    40%  { transform: rotate(-25deg) scaleY(1.2) translateY(0); opacity: 1; }
+    100% { transform: rotate(-25deg) scaleY(1) translateY(10px); opacity: 0; }
+}
+
+/* 画面赤フラッシュ */
+.fx-damage-flash {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255, 0, 0, 0.2);
+    animation: fxDamageFlash 0.3s ease-out forwards;
+}
+
+@keyframes fxDamageFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* ==========================================
+   4. コンボバーストエフェクト（5コンボ+）
+   ========================================== */
+.fx-burst {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0;
+}
+
+.fx-burst.fx-active {
+    animation: fxBurstPulse 0.7s ease-out forwards;
+}
+
+@keyframes fxBurstPulse {
+    0%   { opacity: 0; }
+    15%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* 放射リング */
+.fx-burst-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 4px solid #ffcc00;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    animation: fxRingExpand 0.6s ease-out forwards;
+    box-shadow: 0 0 20px rgba(255, 200, 0, 0.5);
+}
+
+.fx-burst-ring:nth-child(2) {
+    border-color: #ff6600;
+    animation-delay: 0.1s;
+}
+
+.fx-burst-ring:nth-child(3) {
+    border-color: #ff2200;
+    animation-delay: 0.2s;
+}
+
+@keyframes fxRingExpand {
+    0%   { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(12); opacity: 0; }
+}
+
+/* 放射パーティクル */
+.fx-burst-spark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    background: #ffcc00;
+    border-radius: 50%;
+    filter: blur(1px);
+}
+
+.fx-burst-spark:nth-child(4) { animation: fxSparkShoot 0.5s 0.05s ease-out forwards; --angle: 0deg; }
+.fx-burst-spark:nth-child(5) { animation: fxSparkShoot 0.5s 0.08s ease-out forwards; --angle: 45deg; }
+.fx-burst-spark:nth-child(6) { animation: fxSparkShoot 0.5s 0.03s ease-out forwards; --angle: 90deg; background: #ff6600; }
+.fx-burst-spark:nth-child(7) { animation: fxSparkShoot 0.5s 0.1s ease-out forwards; --angle: 135deg; }
+.fx-burst-spark:nth-child(8) { animation: fxSparkShoot 0.5s 0.06s ease-out forwards; --angle: 180deg; background: #ff4400; }
+.fx-burst-spark:nth-child(9) { animation: fxSparkShoot 0.5s 0.09s ease-out forwards; --angle: 225deg; }
+.fx-burst-spark:nth-child(10) { animation: fxSparkShoot 0.5s 0.04s ease-out forwards; --angle: 270deg; background: #ffee00; }
+.fx-burst-spark:nth-child(11) { animation: fxSparkShoot 0.5s 0.07s ease-out forwards; --angle: 315deg; }
+
+@keyframes fxSparkShoot {
+    0%   { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(120px); opacity: 0; }
+}
+
+/* ==========================================
+   5. 正解キラキラエフェクト
+   ========================================== */
+.fx-correct-flash {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 55;
+}
+
+.fx-correct-flash.fx-active {
+    animation: fxCorrectFlash 0.5s ease-out forwards;
+}
+
+@keyframes fxCorrectFlash {
+    0%   { opacity: 0; background: rgba(46, 204, 113, 0.3); }
+    20%  { opacity: 1; background: rgba(46, 204, 113, 0.2); }
+    100% { opacity: 0; background: transparent; }
+}
+
+/* 正解キラキラ星 */
+.fx-sparkle {
+    position: absolute;
+    width: 12px; height: 12px;
+    pointer-events: none;
+    z-index: 56;
+}
+
+.fx-sparkle::before,
+.fx-sparkle::after {
+    content: "";
+    position: absolute;
+    background: #ffee00;
+    border-radius: 2px;
+}
+.fx-sparkle::before {
+    width: 100%; height: 3px;
+    top: 50%; left: 0;
+    transform: translateY(-50%);
+}
+.fx-sparkle::after {
+    width: 3px; height: 100%;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+}
+
+@keyframes fxSparkle {
+    0%   { transform: scale(0) rotate(0deg); opacity: 1; }
+    50%  { transform: scale(1.5) rotate(90deg); opacity: 1; }
+    100% { transform: scale(0) rotate(180deg); opacity: 0; }
+}
+
+/* 大きな丸「◎」エフェクト */
+.fx-correct-circle {
+    position: absolute;
+    top: 35%; left: 50%;
+    width: 100px; height: 100px;
+    transform: translate(-50%, -50%) scale(0);
+    border: 8px solid #2ecc71;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 57;
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.6), inset 0 0 20px rgba(46, 204, 113, 0.3);
+}
+
+.fx-correct-circle.fx-active {
+    animation: fxCirclePop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fxCirclePop {
+    0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    40%  { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    70%  { transform: translate(-50%, -50%) scale(0.95); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* 不正解バツエフェクト */
+.fx-wrong-x {
+    position: absolute;
+    top: 35%; left: 50%;
+    width: 80px; height: 80px;
+    transform: translate(-50%, -50%) scale(0);
+    pointer-events: none;
+    z-index: 57;
+}
+
+.fx-wrong-x::before,
+.fx-wrong-x::after {
+    content: "";
+    position: absolute;
+    width: 80px; height: 8px;
+    background: #e74c3c;
+    top: 50%; left: 0;
+    border-radius: 4px;
+    box-shadow: 0 0 12px rgba(231, 76, 60, 0.6);
+}
+.fx-wrong-x::before { transform: translateY(-50%) rotate(45deg); }
+.fx-wrong-x::after  { transform: translateY(-50%) rotate(-45deg); }
+
+.fx-wrong-x.fx-active {
+    animation: fxWrongPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fxWrongPop {
+    0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    40%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+    70%  { transform: translate(-50%, -50%) scale(0.9); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* 不正解赤フラッシュ */
+.fx-wrong-flash {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 55;
+}
+.fx-wrong-flash.fx-active {
+    animation: fxWrongFlash 0.4s ease-out forwards;
+}
+@keyframes fxWrongFlash {
+    0%   { opacity: 0; background: rgba(231, 76, 60, 0.35); }
+    15%  { opacity: 1; }
+    30%  { opacity: 0.3; }
+    45%  { opacity: 0.8; }
+    100% { opacity: 0; }
+}
+
+/* ==========================================
+   5b. レベルアップ演出
+   ========================================== */
+.fx-levelup-flash {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 900;
+    pointer-events: none;
+    opacity: 0;
+}
+.fx-levelup-flash.fx-active {
+    animation: fxLevelupFlash 0.8s ease-out forwards;
+}
+@keyframes fxLevelupFlash {
+    0%   { opacity: 0; background: rgba(255, 230, 100, 0.6); }
+    20%  { opacity: 1; background: rgba(255, 230, 100, 0.4); }
+    40%  { opacity: 0.3; }
+    60%  { opacity: 0.6; background: rgba(255, 255, 255, 0.3); }
+    100% { opacity: 0; }
+}
+
+.fx-levelup-text {
+    position: fixed;
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 48px;
+    font-weight: 900;
+    color: #ffcc00;
+    text-shadow: 0 0 20px rgba(255,200,0,0.8), 2px 2px 0 #c0392b, -2px -2px 0 #c0392b;
+    z-index: 910;
+    pointer-events: none;
+    white-space: nowrap;
+    letter-spacing: 4px;
+}
+.fx-levelup-text.fx-active {
+    animation: fxLevelupText 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes fxLevelupText {
+    0%   { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
+    30%  { transform: translate(-50%, -50%) scale(1.3) rotate(3deg); opacity: 1; }
+    50%  { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+    80%  { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.5) rotate(0deg); opacity: 0; }
+}
+
+/* ==========================================
+   6. ダメージ数値（ポップアップ）
+   ========================================== */
+.fx-damage-number {
+    position: absolute;
+    font-size: 32px;
+    font-weight: 900;
+    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+    pointer-events: none;
+    z-index: 60;
+    animation: fxDmgPop 0.8s ease-out forwards;
+}
+
+.fx-damage-number.fx-dmg-player {
+    color: #ff4444;
+    top: 55%;
+    left: 50%;
+}
+
+.fx-damage-number.fx-dmg-enemy {
+    color: #ffcc00;
+    top: 20%;
+    left: 50%;
+}
+
+@keyframes fxDmgPop {
+    0%   { transform: translate(-50%, 0) scale(0.5); opacity: 1; }
+    30%  { transform: translate(-50%, -15px) scale(1.3); opacity: 1; }
+    100% { transform: translate(-50%, -40px) scale(0.8); opacity: 0; }
+}
+
+/* ==========================================
+   しごとモード：マイルストーン通知
+   ========================================== */
+@keyframes milestoneFloat {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.8); }
+    20%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.1); }
+    40%  { transform: translateX(-50%) translateY(-5px) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(0.9); }
+}
+
+/* ==========================================
+   しごとモード：フィーバーモード演出
+   ========================================== */
+@keyframes feverPulse {
+    0%   { transform: translateX(-50%) scale(1); text-shadow: 0 0 10px rgba(255,68,68,0.5); }
+    100% { transform: translateX(-50%) scale(1.05); text-shadow: 0 0 20px rgba(255,136,0,0.8); }
+}
