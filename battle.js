@@ -175,6 +175,7 @@ const BattleManager = {
         let tl = enemy.timeLimit !== undefined ? enemy.timeLimit : this.stage.timeLimit;
         if (tl && GameState.settings.slow) tl = Math.round(tl * 1.5);
         this.currentTimeLimit = tl;
+        this.baseTimeLimit = tl;   // accelギミックの戻し先
 
         UIManager.setEnemy(enemy);
         UIManager.updateEnemyHp(this.enemyHp, this.enemyMaxHp);
@@ -189,10 +190,22 @@ const BattleManager = {
         const enemy = this._currentEnemy();
         UIManager.showCommentary(enemy.key + "が あらわれた！", 1500);
         SoundManager.playSE("select");
-        if (this._currentEnemy().gimmick === "barrier") {
+
+        // 説明テキスト（敵ごと > ステージ共通（最初の敵のみ））
+        const intro = enemy.intro || (this.enemyIndex === 0 ? this.stage.intro : null);
+        if (intro) {
+            this._later(1600, () => UIManager.showCommentary(intro, 2400));
+        } else if (enemy.gimmick === "barrier") {
             this._later(1600, () => UIManager.showRandomCommentary("barrier"));
         }
-        this._later(1700, () => this.nextQuestion());
+        this._later(intro ? 4100 : 1700, () => this.nextQuestion());
+    },
+
+    // ステージの出題形式からランダムに1つ選ぶ
+    _pickType: function() {
+        const types = this.stage.qTypes;
+        if (!types || types.length === 0) return "normal";
+        return types[Math.floor(Math.random() * types.length)];
     },
 
     // ==========================================
@@ -211,7 +224,7 @@ const BattleManager = {
         const dueIdx = this.revengeQueue.findIndex(r => r.due <= this.questionCount);
         if (dueIdx >= 0) {
             const r = this.revengeQueue.splice(dueIdx, 1)[0];
-            q = QuestionGenerator.makeQuestion(r.a, r.b, 4);
+            q = QuestionGenerator.makeQuestion(r.a, r.b, 4, r.type, r.missing);
             this.isRevenge = true;
         }
         // 2) 苦手リスト面（にがてリベンジ/メタモン）はリストから出題
@@ -229,12 +242,15 @@ const BattleManager = {
         // 4) 通常: 苦手混入（W2:20%, W3:30%）または範囲内から重み付き抽選
         else {
             const mixRate = GameConfig.battle.weakMixRate[this.stage.world] || 0;
-            const weakPool = mixRate > 0 ? GameState.getWeakFacts(12) : [];
+            const weakPool = (mixRate > 0 ? GameState.getWeakFacts(12) : []).filter(w =>
+                !QuestionGenerator._recentKeys.includes(w.key) &&
+                !this.revengeQueue.some(r => r.a === w.a && r.b === w.b));
+            const type = this._pickType();
             if (weakPool.length > 0 && Math.random() < mixRate) {
                 const w = weakPool[Math.floor(Math.random() * weakPool.length)];
-                q = QuestionGenerator.makeQuestion(w.a, w.b, 4);
+                q = QuestionGenerator.makeQuestion(w.a, w.b, 4, type);
             } else {
-                q = QuestionGenerator.generate(this.stage.dans);
+                q = QuestionGenerator.generate(this.stage.dans, { type: type });
             }
         }
 
@@ -324,11 +340,11 @@ const BattleManager = {
         const enemy = this._currentEnemy();
         if (enemy.gimmick !== "shuffle") return;
         if (this.questionCount % 3 !== 0) return;
-        // ヒントモード(2択)の子にいたずらは重ねない
-        if (this.currentQ && this.currentQ.options.length === 2) return;
+        // ヒントモード(2択)の子にいたずらは重ねない。式を4つ読む「ぎゃくびき」問題でも発動しない
+        if (this.currentQ && (this.currentQ.options.length === 2 || this.currentQ.type === "reverse")) return;
         this._shuffleTimer = this._later(1200, () => {
             if (this._answered || this.awaitingCorrectTap || this.isInputBlocked) return;
-            if (!this.currentQ || this.currentQ.options.length === 2) return;
+            if (!this.currentQ || this.currentQ.options.length === 2 || this.currentQ.type === "reverse") return;
             QuestionGenerator._shuffle(this.currentQ.options);
             UIManager.renderQuestion(this.currentQ, this.currentHint);
             UIManager.setOptionsEnabled(true);
@@ -338,7 +354,8 @@ const BattleManager = {
                 void wrap.offsetWidth;
                 wrap.classList.add("options-spin");
             }
-            UIManager.showCommentary("ゲンガーの いたずら！ ばしょが かわった！", 1500);
+            const enemyNow = this._currentEnemy();
+            UIManager.showCommentary(enemyNow.shuffleText || (enemyNow.key + "の いたずら！ ばしょが かわった！"), 1500);
             SoundManager.playSE("select");
         });
     },
@@ -457,6 +474,21 @@ const BattleManager = {
     _afterAttack: function(damage) {
         const enemy = this._currentEnemy();
 
+        // ディアルガ: 正解するたび制限時間が縮む（accelMin まで）
+        if (enemy.gimmick === "accel" && this.currentTimeLimit) {
+            const slowMul = GameState.settings.slow ? 1.5 : 1;
+            const minT = Math.round((enemy.accelMin || 3000) * slowMul);
+            const step = Math.round((enemy.accelStep || 300) * slowMul);
+            if (this.currentTimeLimit > minT) {
+                this.currentTimeLimit = Math.max(minT, this.currentTimeLimit - step);
+                const sec = (this.currentTimeLimit / 1000).toFixed(1);
+                // 「はやい！」等の実況を消さないよう少し遅らせる。撃破時は出さない
+                if (this.enemyHp > 0) {
+                    this._later(650, () => UIManager.showCommentary("⏳ じかんが ちぢむ！ のこり " + sec + "びょう", 1200));
+                }
+            }
+        }
+
         // 怒りモード（HP半分で2形態目）
         if (enemy.gimmick === "rage" && !this.raged &&
             this.enemyHp > 0 && this.enemyHp <= this.enemyMaxHp / 2) {
@@ -514,11 +546,18 @@ const BattleManager = {
         const q = this.currentQ;
         this.missedFacts[q.key] = q;
 
-        // リベンジ予約: 2〜3問後に必ず再出題
+        // リベンジ予約: 2〜3問後に同じ形式で必ず再出題
         this.revengeQueue.push({
-            a: q.a, b: q.b,
+            a: q.a, b: q.b, type: q.type, missing: q.missing,
             due: this.questionCount + 2 + Math.floor(Math.random() * 2)
         });
+
+        // ディアルガ: 間違えたら制限時間を少し戻す（救済）
+        const enemyNow = this._currentEnemy();
+        if (enemyNow.gimmick === "accel" && this.baseTimeLimit && this.currentTimeLimit) {
+            const step = Math.round((enemyNow.accelStep || 300) * (GameState.settings.slow ? 1.5 : 1));
+            this.currentTimeLimit = Math.min(this.baseTimeLimit, this.currentTimeLimit + step * 2);
+        }
 
         if (btn) btn.classList.add("option-answered-wrong");
         SoundManager.playSE("wrong");

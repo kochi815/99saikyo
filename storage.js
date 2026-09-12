@@ -46,7 +46,7 @@ const StorageManager = {
             if (!GameState.costumes.selected) GameState.costumes.selected = "pika";
             GameState.metamon       = data.metamon || { lastClearDate: null, clearCount: 0 };
             GameState.settings      = Object.assign({ se: true, bgm: true, slow: false }, data.settings || {});
-            GameState.flags         = Object.assign({ endingSeen: false, exCleared: false, saikyoouSeen: false }, data.flags || {});
+            GameState.flags         = Object.assign({ endingSeen: false, exCleared: false, saikyoouSeen: false, masterCleared: false, masterSeen: false }, data.flags || {});
             return true;
         } catch (e) {
             console.error("セーブデータの読み込みに失敗しました", e);

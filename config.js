@@ -37,15 +37,19 @@ const GameConfig = {
         criticalTime: 3000,       // クリティカル判定ms
         voltGaugeMax: 5,          // ゲージMAXに必要な正解数
         inputLockMs: 400,         // 出題直後の入力ロック
-        weakMixRate: { 2: 0.2, 3: 0.3 }  // ワールド別 苦手混入率
+        weakMixRate: { 2: 0.2, 3: 0.3, 5: 0.3 }  // ワールド別 苦手混入率
     },
 
     // ==========================================
     //  ステージ定義
     //  dans: 出題する段 / enemies: 連戦対応
     //  gimmick: shuffle(選択肢入替) / counter(誤答2ダメージ) /
-    //           rage(HP半分で2形態) / barrier(クリティカルのみ有効)
+    //           rage(HP半分で2形態) / barrier(クリティカルのみ有効) /
+    //           accel(正解するたび制限時間が accelStep ずつ縮み accelMin まで)
     //  timeLimit: 1問の制限時間ms（nullなら無制限）
+    //  qTypes: 出題形式の配列（均等ランダム）。normal=a×b=? / missing=a×□=c / reverse=c になる式は?
+    //  hiddenUntil: このステージをクリアするまでマップに表示しない
+    //  intro: 敵登場後に表示する説明テキスト（enemy.intro で敵ごとの上書き可）
     // ==========================================
     stages: [
         // --- ワールド1: だんバッジロード ---
@@ -100,8 +104,27 @@ const GameConfig = {
                     { key: "ミュウツー", img: "ミュウツー01.gif", hp: 1400, timeLimit: 5000, gimmick: "barrier" }] },
 
         // --- 裏面 ---
-        { id: "ex1", world: 4, name: "まぼろしの島",     subName: "3びょうしょうぶ！", dans: [1,2,3,4,5,6,7,8,9], hearts: 3, timeLimit: 3000, boss: true, secret: true,
-          enemies: [{ key: "ミュウ", img: "ミュウ01.gif", hp: 1400 }] }
+        { id: "ex1", world: 4, name: "まぼろしの島",     subName: "3びょうしょうぶ！", dans: [1,2,3,4,5,6,7,8,9], hearts: 3, timeLimit: 3000, boss: true, hiddenUntil: "s34",
+          enemies: [{ key: "ミュウ", img: "ミュウ01.gif", hp: 1400 }] },
+
+        // --- ワールド5: でんせつのしれん（裏面クリア後に出現。九九マスター認定） ---
+        { id: "s51", world: 5, name: "そらのしれん",   subName: "あなうめ九九", dans: [1,2,3,4,5,6,7,8,9], hearts: 4, timeLimit: 6000, hiddenUntil: "ex1",
+          qTypes: ["normal", "missing", "missing"],
+          intro: "？に はいる かずを こたえよう！",
+          enemies: [{ key: "ルギア", img: "ルギア.png", hp: 1500 }] },
+        { id: "s52", world: 5, name: "りゅうのしれん", subName: "ぎゃくびき九九", dans: [1,2,3,4,5,6,7,8,9], hearts: 4, timeLimit: 6000, hiddenUntil: "ex1",
+          qTypes: ["normal", "reverse", "reverse"],
+          intro: "こたえに なる しきを えらぼう！",
+          enemies: [{ key: "レックウザ", img: "レックウザ.png", hp: 1500, gimmick: "rage", rageTimeCut: 1500 }] },
+        { id: "s53", world: 5, name: "ときのしれん",   subName: "3しゅるい ミックス", dans: [1,2,3,4,5,6,7,8,9], hearts: 4, timeLimit: 6000, hiddenUntil: "ex1",
+          qTypes: ["normal", "missing", "reverse"],
+          intro: "せいかいするたび じかんが みじかくなるぞ！",
+          enemies: [{ key: "ディアルガ", img: "ディアルガ.png", hp: 1800, gimmick: "accel", accelStep: 300, accelMin: 3500 }] },
+        { id: "s54", world: 5, name: "九九マスターけんてい", subName: "でんせつの 3れんせん", dans: [1,2,3,4,5,6,7,8,9], hearts: 7, timeLimit: 4000, boss: true, hiddenUntil: "ex1", bgm: "bgm_battle_last",
+          qTypes: ["normal", "missing", "reverse"],
+          enemies: [{ key: "ミュウツー",     img: "ミュウツー.png",     hp: 1200, intro: "ぜんぶの もんだいが ミックスだ！" },
+                    { key: "メガミュウツーX", img: "メガミュウツーX.png", hp: 1200, timeLimit: 3500, gimmick: "counter", intro: "カウンター！ まちがえると ハートが2つ へる！" },
+                    { key: "メガミュウツーY", img: "メガミュウツーY.png", hp: 1500, timeLimit: 3500, gimmick: "shuffle", shuffleText: "サイコパワー！ こたえの ばしょが かわった！", intro: "サイコパワーで こたえの ばしょが かわるぞ！" }] }
     ],
 
     // ステージをIDで取得
@@ -112,7 +135,11 @@ const GameConfig = {
     // 進行順リスト（解禁チェック用）
     stageOrder: ["s10","s11","s12","s13","s14","s15","s16","s17","s18","s19",
                  "s21","s22","s23","s24","s25","s26",
-                 "s31","s32","s33","s34","ex1"],
+                 "s31","s32","s33","s34","ex1",
+                 "s51","s52","s53","s54"],
+
+    // 九九マスター認定ステージ
+    masterStageId: "s54",
 
     // 裏面解禁条件: s34クリア + くくマップ銀以上60マス
     exUnlockSilver: 60,
@@ -134,7 +161,8 @@ const GameConfig = {
         1: { name: "ワールド1 だんバッジロード", bgm: "bgm_battle1" },
         2: { name: "ワールド2 ミックスコロシアム", bgm: "bgm_battle2" },
         3: { name: "ワールド3 でんせつロード", bgm: "bgm_battle_final" },
-        4: { name: "うらワールド まぼろしの島", bgm: "bgm_battle_last" }
+        4: { name: "うらワールド まぼろしの島", bgm: "bgm_battle_last" },
+        5: { name: "🏆 でんせつワールド 九九マスターへの みち", bgm: "bgm_battle_last" }
     },
 
     // ==========================================
@@ -167,13 +195,18 @@ const GameConfig = {
         { key: "カイリュー",   img: "カイリュー01.gif", boss: true },
         { key: "ミュウツー",   img: "ミュウツー01.gif", boss: true },
         { key: "ミュウ",       img: "ミュウ01.gif", boss: true },
-        { key: "メタモン",     img: "メタモン01.gif" }
+        { key: "メタモン",     img: "メタモン01.gif" },
+        { key: "ルギア",       img: "ルギア.png", boss: true },
+        { key: "レックウザ",   img: "レックウザ.png", boss: true },
+        { key: "ディアルガ",   img: "ディアルガ.png", boss: true },
+        { key: "メガミュウツーX", img: "メガミュウツーX.png", boss: true },
+        { key: "メガミュウツーY", img: "メガミュウツーY.png", boss: true }
     ],
 
     // ==========================================
     //  きせかえ（パートナーの見た目）
     //  unlock: { type: "star", n: 星数 } / { type: "metamon", n: 回数 } /
-    //          { type: "default" } / { type: "ex" }
+    //          { type: "default" } / { type: "ex" } / { type: "master" }
     // ==========================================
     costumes: [
         { key: "pika",       name: "ピカチュウ",        img: "ピカチュウ01.gif",            unlock: { type: "default" } },
@@ -192,7 +225,8 @@ const GameConfig = {
         { key: "yukidaruma", name: "ゆきだるま",        img: "ピカチュウ_雪だるま.gif",      unlock: { type: "metamon", n: 5 } },
         { key: "koinobori",  name: "こいのぼり",        img: "ピカチュウ_鯉のぼり.gif",      unlock: { type: "metamon", n: 7 } },
         { key: "ohinasama",  name: "おひなさま",        img: "ピカチュウ_お雛様.gif",        unlock: { type: "metamon", n: 10 } },
-        { key: "raichu",     name: "ライチュウ",        img: "ライチュウ01.gif",             unlock: { type: "ex" } }
+        { key: "raichu",     name: "ライチュウ",        img: "ライチュウ01.gif",             unlock: { type: "ex" } },
+        { key: "oiwai",      name: "おいわい",          img: "ピカチュウ_お祝い.gif",        unlock: { type: "master" } }
     ],
 
     // タイトル画面の月替わりピカチュウ

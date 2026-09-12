@@ -159,7 +159,7 @@ const UIManager = {
         const yomiEl = document.getElementById("battle-question-yomi");
         const hintEl = document.getElementById("battle-hint");
         const wrap = document.getElementById("battle-options");
-        if (qEl) qEl.innerHTML = "？ × ？ = <span class='q-mark'>?</span>";
+        if (qEl) { qEl.innerHTML = "？ × ？ = <span class='q-mark'>?</span>"; qEl.classList.remove("q-long"); }
         if (yomiEl) yomiEl.textContent = "";
         if (hintEl) hintEl.style.display = "none";
         if (wrap) { wrap.innerHTML = ""; wrap.classList.remove("options-two"); }
@@ -168,8 +168,24 @@ const UIManager = {
     renderQuestion: function(q, hintText) {
         const qEl = document.getElementById("battle-question");
         const yomiEl = document.getElementById("battle-question-yomi");
-        if (qEl) qEl.innerHTML = q.a + " × " + q.b + " = <span class='q-mark'>?</span>";
-        if (yomiEl) yomiEl.textContent = q.yomiQ;
+        const c = q.a * q.b;
+        if (qEl) {
+            if (q.type === "missing") {
+                qEl.innerHTML = (q.missing === "a")
+                    ? "<span class='q-mark'>?</span> × " + q.b + " = " + c
+                    : q.a + " × <span class='q-mark'>?</span> = " + c;
+            } else if (q.type === "reverse") {
+                qEl.innerHTML = c + " = <span class='q-mark'>?</span> × <span class='q-mark'>?</span>";
+            } else {
+                qEl.innerHTML = q.a + " × " + q.b + " = <span class='q-mark'>?</span>";
+            }
+            qEl.classList.toggle("q-long", q.type !== "normal");
+        }
+        if (yomiEl) {
+            if (q.type === "missing") yomiEl.textContent = "？に はいる かずは？";
+            else if (q.type === "reverse") yomiEl.textContent = "こたえが " + c + " に なる しきは？";
+            else yomiEl.textContent = q.yomiQ;
+        }
 
         const hintEl = document.getElementById("battle-hint");
         if (hintEl) {
@@ -188,7 +204,9 @@ const UIManager = {
             const btn = document.createElement("button");
             btn.className = "option-btn";
             btn.dataset.value = v;
-            btn.innerHTML = '<span class="ball-icon"></span><span class="option-num">' + v + "</span>";
+            btn.innerHTML = '<span class="ball-icon"></span><span class="option-num' +
+                            (q.type === "reverse" ? " option-shiki" : "") + '">' +
+                            QuestionGenerator.optionLabel(q, v) + "</span>";
             btn.addEventListener("click", () => BattleManager.onAnswer(i, v, btn));
             wrap.appendChild(btn);
         });
@@ -224,7 +242,7 @@ const UIManager = {
         const el = document.getElementById("battle-yomi-telop");
         if (!el) return;
         if (show) {
-            el.innerHTML = '<div class="yomi-answer">' + q.a + " × " + q.b + " = <b>" + q.answer + "</b></div>" +
+            el.innerHTML = '<div class="yomi-answer">' + q.a + " × " + q.b + " = <b>" + (q.a * q.b) + "</b></div>" +
                            '<div class="yomi-text">「' + q.yomi + "」</div>" +
                            '<div class="yomi-guide">ひかっている こたえを タップ！</div>';
             el.style.display = "block";

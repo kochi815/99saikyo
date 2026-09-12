@@ -22,13 +22,18 @@ const TitleScreen = {
         const img = document.getElementById("title-pika");
         if (img) img.src = "img/" + (GameConfig.monthlyPika[month] || "ピカチュウ01.gif");
 
-        // 裏面クリアで王冠
+        // 裏面クリアで王冠、九九マスター認定でトロフィー
         const crown = document.getElementById("title-crown");
-        if (crown) crown.style.display = GameState.flags.exCleared ? "block" : "none";
+        if (crown) {
+            crown.style.display = (GameState.flags.exCleared || GameState.flags.masterCleared) ? "block" : "none";
+            crown.textContent = GameState.flags.masterCleared ? "🏆👑🏆" : "👑";
+        }
 
         const titleTag = document.getElementById("title-tag");
         if (titleTag) {
-            titleTag.textContent = GameState.flags.exCleared ? "〜きみこそ 九九最強王！〜" : "ポケモンと 九九マスターへの たび";
+            if (GameState.flags.masterCleared) titleTag.textContent = "〜でんせつの 九九マスター〜";
+            else if (GameState.flags.exCleared) titleTag.textContent = "〜きみこそ 九九最強王！〜";
+            else titleTag.textContent = "ポケモンと 九九マスターへの たび";
         }
 
         // はじめる／つづきから
@@ -47,6 +52,22 @@ const TitleScreen = {
 // ==========================================
 const MapScreen = {
     show: function(hideIds) {
+        // まだ見ていないお祝い演出があれば先にそちらへ（達成順）。
+        // 勝利画面から以外（敗北・にげる・タイトル）でマップに戻った場合も取りこぼさない。
+        // Ending.close() が再び MapScreen.show を呼ぶので、複数たまっていても順番に流れる
+        const f = GameState.flags;
+        if (GameState.isStageCleared("s34") && !f.endingSeen) {
+            f.endingSeen = true; StorageManager.save();
+            Ending.show(hideIds); return;
+        }
+        if (GameState.isStageCleared("ex1") && !f.saikyoouSeen) {
+            f.exCleared = true; f.saikyoouSeen = true; StorageManager.save();
+            Ending.showSaikyoou(hideIds); return;
+        }
+        if (GameState.isStageCleared(GameConfig.masterStageId) && !f.masterSeen) {
+            f.masterCleared = true; f.masterSeen = true; StorageManager.save();
+            Ending.showMaster(hideIds); return;
+        }
         this.render();
         TransitionManager.fade(hideIds, "map-screen", "block", () => {
             SoundManager.playBGM("bgm_home");
@@ -82,8 +103,8 @@ const MapScreen = {
             const stage = GameConfig.getStage(id);
             if (!stage) return;
 
-            // 裏面はs34クリアまで非表示
-            if (stage.secret && !GameState.isStageCleared("s34")) return;
+            // 指定ステージをクリアするまで非表示（裏面・でんせつワールド）
+            if (stage.hiddenUntil && !GameState.isStageCleared(stage.hiddenUntil)) return;
 
             if (stage.world !== currentWorld) {
                 currentWorld = stage.world;
@@ -280,7 +301,7 @@ const ResultScreen = {
         let html = '<div class="review-title">📝 こんかいの ふくしゅう</div>';
         keys.forEach(k => {
             const q = missedFacts[k];
-            html += '<div class="review-row"><b>' + q.a + " × " + q.b + " = " + q.answer + "</b>" +
+            html += '<div class="review-row"><b>' + q.a + " × " + q.b + " = " + (q.a * q.b) + "</b>" +
                     '<span class="review-yomi">「' + q.yomi + '」</span></div>';
         });
         el.innerHTML = html;
@@ -291,23 +312,7 @@ const ResultScreen = {
         if (TransitionManager._busy) return;
         SoundManager.playSE("select");
         this._token++;
-        const r = this._lastResult;
-
-        // チャンピオン初クリア→エンディング
-        if (r && !r.isMetamon && r.stage.id === "s34" && !GameState.flags.endingSeen) {
-            GameState.flags.endingSeen = true;
-            StorageManager.save();
-            Ending.show(["victory-screen"]);
-            return;
-        }
-        // 裏面クリア→王冠のお祝い（初回のみ。「もういちど」で飛ばしても次回マップへ戻る時に見られる）
-        if (r && !r.isMetamon && r.stage.id === "ex1" &&
-            GameState.flags.exCleared && !GameState.flags.saikyoouSeen) {
-            GameState.flags.saikyoouSeen = true;
-            StorageManager.save();
-            Ending.showSaikyoou(["victory-screen"]);
-            return;
-        }
+        // 初クリアのお祝い演出（チャンピオン／最強王／九九マスター）は MapScreen.show が振り分ける
         MapScreen.show(["victory-screen"]);
     },
 
@@ -380,6 +385,29 @@ const Ending = {
         if (msg) {
             msg.innerHTML = "3びょうの ミュウに かった！<br>きみこそ ほんものの 九九最強王だ！！<br><br>" +
                 "🎁 きせかえ「ライチュウ」も ゲット！";
+        }
+        TransitionManager.fade(hideIds, "ending-screen", "flex", () => {
+            SoundManager.playBGM("bgm_result");
+            SoundManager.playSE("trophy");
+        });
+    },
+
+    // 九九マスター認定
+    showMaster: function(hideIds) {
+        const parade = document.getElementById("ending-parade");
+        if (parade) {
+            const legends = ["ルギア.png", "レックウザ.png", "ディアルガ.png", "ミュウツー.png", "メガミュウツーX.png", "メガミュウツーY.png"];
+            const html = legends.map(f => '<img class="parade-img parade-legend" src="img/' + f + '" alt="">').join("");
+            parade.innerHTML = html + html;
+        }
+        const title = document.getElementById("ending-title");
+        if (title) title.textContent = "🏆 九九マスター にんてい！ 🏆";
+        const msg = document.getElementById("ending-msg");
+        if (msg) {
+            msg.innerHTML = "でんせつの ポケモンたちに ぜんぶ かった！<br>" +
+                "はやさも、あなうめも、ぎゃくびきも かんぺき。<br>" +
+                "きみは ほんものの <b>九九マスター</b>だ！！<br><br>" +
+                "🎁 きせかえ「おいわい」も ゲット！";
         }
         TransitionManager.fade(hideIds, "ending-screen", "flex", () => {
             SoundManager.playBGM("bgm_result");
@@ -595,6 +623,7 @@ const DressScreen = {
                 if (c.unlock.type === "star") condText = "⭐" + c.unlock.n + "こで かいほう";
                 else if (c.unlock.type === "metamon") condText = "とっくん" + c.unlock.n + "かいで かいほう";
                 else if (c.unlock.type === "ex") condText = "まぼろしの島クリアで かいほう";
+                else if (c.unlock.type === "master") condText = "九九マスターけんてい クリアで かいほう";
             }
             html += '<div class="dress-card' + (unlocked ? " dress-unlocked" : " dress-locked") +
                     (selected ? " dress-selected" : "") + '" data-key="' + c.key + '">' +

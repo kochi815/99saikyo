@@ -30,8 +30,8 @@ const GameState = {
     // 設定
     settings: { se: true, bgm: true, slow: false },
 
-    // 各種フラグ { endingSeen: false, exCleared: false }
-    flags: { endingSeen: false, exCleared: false, saikyoouSeen: false },
+    // 各種フラグ: endingSeen(チャンピオン演出済) / exCleared・saikyoouSeen(裏面) / masterCleared・masterSeen(九九マスター)
+    flags: { endingSeen: false, exCleared: false, saikyoouSeen: false, masterCleared: false, masterSeen: false },
 
     // ==========================================
     //  ファクト統計API
@@ -157,6 +157,7 @@ const GameState = {
             }
             stage.enemies.forEach(e => { this.dex[e.key] = true; });
             if (stageId === "ex1") this.flags.exCleared = true;
+            if (stageId === GameConfig.masterStageId) this.flags.masterCleared = true;
         }
         return this.checkCostumeUnlocks();
     },
@@ -173,6 +174,7 @@ const GameState = {
             if (c.unlock.type === "star" && stars >= c.unlock.n) ok = true;
             if (c.unlock.type === "metamon" && this.metamon.clearCount >= c.unlock.n) ok = true;
             if (c.unlock.type === "ex" && this.flags.exCleared) ok = true;
+            if (c.unlock.type === "master" && this.flags.masterCleared) ok = true;
             if (ok) {
                 this.costumes.unlocked.push(c.key);
                 newly.push(c);

@@ -2,8 +2,12 @@
 // 九九の問題と4択の選択肢を作るエンジン
 //
 // 問題オブジェクト:
-//   { a, b, key:"3x4", answer:12, options:[12,9,16,15],
+//   { a, b, key:"3x4", type:"normal", answer:12, options:[12,9,16,15],
 //     yomiQ:"さん し", yomi:"さんし じゅうに" }
+// 出題形式(type):
+//   normal  … a × b = ?        answer=積、options=数
+//   missing … a × ? = c / ? × b = c   answer=抜けた数(1〜9)、options=数、missing="a"|"b"
+//   reverse … c = ? × ?        answer=a*10+b（式のコード）、options=式コード（表示は optionLabel）
 
 const QuestionGenerator = {
 
@@ -29,24 +33,102 @@ const QuestionGenerator = {
             b = pick[1];
         }
 
-        return this.makeQuestion(a, b, opts.optionCount || 4);
+        return this.makeQuestion(a, b, opts.optionCount || 4, opts.type);
     },
 
-    // a×b から問題オブジェクトを組み立て
-    makeQuestion: function(a, b, optionCount) {
+    // a×b から問題オブジェクトを組み立て（type省略時は normal）
+    //   missing … "a"|"b" を渡すと あなうめ の穴の位置を固定（リベンジ再出題用）
+    makeQuestion: function(a, b, optionCount, type, missing) {
         const key = a + "x" + b;
-        this._recentKeys.push(key);
-        if (this._recentKeys.length > this._recentLimit) this._recentKeys.shift();
+        if (this._recentKeys[this._recentKeys.length - 1] !== key) {
+            this._recentKeys.push(key);
+            if (this._recentKeys.length > this._recentLimit) this._recentKeys.shift();
+        }
+        type = type || "normal";
+        optionCount = optionCount || 4;
 
-        return {
+        const q = {
             a: a,
             b: b,
             key: key,
-            answer: a * b,
-            options: this.makeOptions(a, b, optionCount || 4),
+            type: type,
             yomiQ: GameConfig.numYomi[a] + " " + GameConfig.numYomi[b],
             yomi: GameConfig.getYomi(a, b)
         };
+
+        if (type === "missing") {
+            q.missing = (missing === "a" || missing === "b") ? missing : (Math.random() < 0.5 ? "a" : "b");
+            q.answer = (q.missing === "a") ? a : b;
+            q.options = this.makeMissingOptions(a, b, q.missing, optionCount);
+        } else if (type === "reverse") {
+            q.answer = a * 10 + b;
+            q.options = this.makeReverseOptions(a, b, optionCount);
+        } else {
+            q.answer = a * b;
+            q.options = this.makeOptions(a, b, optionCount);
+        }
+        return q;
+    },
+
+    // 選択肢の表示ラベル（reverse は式コード→「6 × 7」）
+    optionLabel: function(q, v) {
+        if (q.type === "reverse") return Math.floor(v / 10) + " × " + (v % 10);
+        return String(v);
+    },
+
+    // ==========================================
+    //  あなうめ: a × ? = c の「?」の選択肢（1〜9の数）
+    //  誤答は「もう片方の数」「±1」「±2」を優先
+    // ==========================================
+    makeMissingOptions: function(a, b, missing, count) {
+        const answer = (missing === "a") ? a : b;
+        const other  = (missing === "a") ? b : a;
+        const wrongs = [];
+        const tryAdd = (v) => {
+            if (v >= 1 && v <= 9 && v !== answer && !wrongs.includes(v) && wrongs.length < count - 1) wrongs.push(v);
+        };
+        const near = [other, answer + 1, answer - 1, answer + 2, answer - 2];
+        this._shuffle(near);
+        near.forEach(tryAdd);
+        while (wrongs.length < count - 1) tryAdd(Math.floor(Math.random() * 9) + 1);
+        const options = [answer].concat(wrongs);
+        this._shuffle(options);
+        return options;
+    },
+
+    // ==========================================
+    //  ぎゃくびき: c になる式の選択肢（式コード a*10+b）
+    //  誤答は積が c と異なる式のみ（6×7 と 7×6 のような同じ積の式は出さない）
+    //  隣の九九 → 答えの近い九九 の順で選ぶ
+    // ==========================================
+    makeReverseOptions: function(a, b, count) {
+        const c = a * b;
+        const enc = (x, y) => x * 10 + y;
+        const answer = enc(a, b);
+        const wrongs = [];
+        const ok = (x, y) => x >= 1 && x <= 9 && y >= 1 && y <= 9 && x * y !== c && !wrongs.includes(enc(x, y));
+
+        const tier1 = [[a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]].filter(p => ok(p[0], p[1]));
+        this._shuffle(tier1);
+        tier1.slice(0, 2).forEach(p => { if (ok(p[0], p[1])) wrongs.push(enc(p[0], p[1])); });
+
+        const range = Math.max(12, Math.round(c * 0.3));
+        const tier2 = [];
+        for (let x = 1; x <= 9; x++) {
+            for (let y = 1; y <= 9; y++) {
+                if (ok(x, y) && Math.abs(x * y - c) <= range) tier2.push([x, y]);
+            }
+        }
+        this._shuffle(tier2);
+        for (const p of tier2) { if (wrongs.length >= count - 1) break; if (ok(p[0], p[1])) wrongs.push(enc(p[0], p[1])); }
+        for (const p of tier1) { if (wrongs.length >= count - 1) break; if (ok(p[0], p[1])) wrongs.push(enc(p[0], p[1])); }
+        while (wrongs.length < count - 1) {
+            const x = Math.floor(Math.random() * 9) + 1, y = Math.floor(Math.random() * 9) + 1;
+            if (ok(x, y)) wrongs.push(enc(x, y));
+        }
+        const options = [answer].concat(wrongs.slice(0, count - 1));
+        this._shuffle(options);
+        return options;
     },
 
     // ==========================================

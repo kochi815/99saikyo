@@ -541,6 +541,9 @@ button {
     font-weight: bold;
     letter-spacing: 3px;
 }
+#battle-question.q-long { font-size: 36px; letter-spacing: 1px; }
+.option-shiki { font-size: 26px; letter-spacing: 1px; }
+.parade-img.parade-legend { height: 96px; }
 .q-mark { color: #e53935; }
 
 #battle-hint {
@@ -995,7 +998,7 @@ button {
 .dress-card img { height: 70px; width: 100%; object-fit: contain; }
 .dress-locked img { filter: brightness(0); opacity: 0.5; }
 .dress-name { font-size: 13px; font-weight: bold; margin-top: 4px; }
-.dress-cond { font-size: 10px; color: #ffb3ac; margin-top: 2px; }
+.dress-cond { font-size: 10px; color: #ffb3ac; margin-top: 2px; word-break: keep-all; overflow-wrap: anywhere; }
 .dress-unlocked { cursor: pointer; }
 .dress-unlocked:active { transform: scale(0.96); }
 .dress-selected { border-color: #ffe14d; box-shadow: 0 0 12px rgba(255,200,0,0.6); }
