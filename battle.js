@@ -11,7 +11,9 @@ const BattleManager = {
 
     // --- ステージ状態 ---
     stage: null,           // 現在のステージ設定
-    isMetamon: false,
+    isMetamon: false,      // とっくん（メタモン / イーブイ）中か
+    trainingKind: null,    // null / "metamon" / "eevee"
+    maskIndex: 0,          // オーガポンの おめん
     enemyIndex: 0,
     enemyHp: 0,
     enemyMaxHp: 0,
@@ -67,6 +69,7 @@ const BattleManager = {
         const stage = GameConfig.getStage(stageId);
         if (!stage) return;
         this.isMetamon = false;
+        this.trainingKind = null;
         this._beginBattle(stage, null, fromIds);
     },
 
@@ -81,13 +84,41 @@ const BattleManager = {
             if (!factList.some(f => f[0] === a && f[1] === b)) factList.push([a, b]);
         }
         const stage = {
-            id: "metamon", world: 0, name: "メタモンとっくん", subName: "きみのにがて",
+            id: "metamon", mode: "kake", world: 0, name: "メタモンとっくん", subName: "きみのにがて",
             dans: [1,2,3,4,5,6,7,8,9],
             hearts: GameConfig.metamon.hearts,
             timeLimit: GameConfig.metamon.timeLimit,
             enemies: [{ key: "メタモン", img: "メタモン01.gif", hp: GameConfig.metamon.hp }]
         };
         this.isMetamon = true;
+        this.trainingKind = "metamon";
+        this._beginBattle(stage, factList, fromIds);
+    },
+
+    // イーブイとっくん（わりざんの 苦手TOP5。きょうの イーブイが あいて）
+    startDivTraining: function(fromIds) {
+        const conf = GameConfig.divTraining;
+        const weak = GameState.getWeakFacts(conf.weakCount, "d");
+        const factList = weak.map(w => [w.a, w.b, "div"]);
+        // 苦手が足りなければ ÷6〜÷9 から補充
+        while (factList.length < conf.weakCount) {
+            const a = 6 + Math.floor(Math.random() * 4);
+            const b = 1 + Math.floor(Math.random() * 9);
+            if (!factList.some(f => f[0] === a && f[1] === b)) factList.push([a, b, "div"]);
+        }
+        const e = GameState.todaysEevee();
+        StorageManager.save();
+        const isGiga = e.key === GameConfig.eeveeGiga.key;
+        const stage = {
+            id: "divtrain", mode: "wari", world: 0, name: "イーブイとっくん", subName: "わりざんの にがて",
+            dans: [1,2,3,4,5,6,7,8,9], qTypes: ["div"],
+            hearts: conf.hearts,
+            timeLimit: conf.timeLimit,
+            enemies: [{ key: e.key, img: e.img, hp: isGiga ? conf.gigaHp : conf.hp,
+                        intro: isGiga ? "キョダイマックスの イーブイだ！" : null }]
+        };
+        this.isMetamon = true;
+        this.trainingKind = "eevee";
         this._beginBattle(stage, factList, fromIds);
     },
 
@@ -122,9 +153,11 @@ const BattleManager = {
         this.currentHint = null;
         QuestionGenerator.resetRecent();
 
+        const mode = stage.mode === "wari" ? "wari" : "kake";
         UIManager.clearQuestion();
+        UIManager.setBattleMode(mode);
         this._setupEnemy(0);
-        UIManager.setPartner();
+        UIManager.setPartner(mode);
         UIManager.renderHearts(this.hearts, stage.hearts);
         UIManager.updateCombo(0);
         UIManager.updateVoltGauge(0, GameConfig.battle.voltGaugeMax);
@@ -146,7 +179,7 @@ const BattleManager = {
             SoundManager.playBGM(bgmKey);
             // おぼえタイム（未クリアのW1ジムのみ）
             if (stage.oboeTime && !GameState.isStageCleared(stage.id)) {
-                this._showOboe(stage.dans[0], () => this._introEnemy());
+                this._showOboe(stage, () => this._introEnemy());
             } else {
                 this._introEnemy();
             }
@@ -171,6 +204,7 @@ const BattleManager = {
         this.enemyHp = enemy.hp;
         this.enemyMaxHp = enemy.hp;
         this.raged = false;
+        this.maskIndex = 0;
         // 制限時間: 敵ごとの上書き > ステージ設定。ゆっくりモードで1.5倍
         let tl = enemy.timeLimit !== undefined ? enemy.timeLimit : this.stage.timeLimit;
         if (tl && GameState.settings.slow) tl = Math.round(tl * 1.5);
@@ -195,15 +229,24 @@ const BattleManager = {
         const intro = enemy.intro || (this.enemyIndex === 0 ? this.stage.intro : null);
         if (intro) {
             this._later(1600, () => UIManager.showCommentary(intro, 2400));
-        } else if (enemy.gimmick === "barrier") {
+        } else if (this._hasG(enemy, "barrier")) {
             this._later(1600, () => UIManager.showRandomCommentary("barrier"));
         }
         this._later(intro ? 4100 : 1700, () => this.nextQuestion());
     },
 
-    // ステージの出題形式からランダムに1つ選ぶ
+    // ギミックを持っているか（配列指定・変身後に増えるギミックにも対応）
+    _hasG: function(enemy, name) {
+        if (!enemy) return false;
+        const g = enemy.gimmick;
+        if (g === name || (Array.isArray(g) && g.indexOf(name) >= 0)) return true;
+        return this.raged && enemy.rageGimmick === name;
+    },
+
+    // ステージの出題形式からランダムに1つ選ぶ（おめんの敵は おめんの形式）
     _pickType: function() {
-        const types = this.stage.qTypes;
+        const enemy = this._currentEnemy();
+        const types = (enemy && enemy.masks) ? enemy.masks[this.maskIndex].qTypes : this.stage.qTypes;
         if (!types || types.length === 0) return "normal";
         return types[Math.floor(Math.random() * types.length)];
     },
@@ -220,32 +263,37 @@ const BattleManager = {
 
         let q = null;
 
-        // 1) リベンジ問題（誤答の再出題）が期限到来していれば最優先
+        // 1) リベンジ問題（誤答の再出題）が期限到来していれば最優先（同じ形式・同じ あな・同じ あまり）
         const dueIdx = this.revengeQueue.findIndex(r => r.due <= this.questionCount);
         if (dueIdx >= 0) {
             const r = this.revengeQueue.splice(dueIdx, 1)[0];
-            q = QuestionGenerator.makeQuestion(r.a, r.b, 4, r.type, r.missing);
+            q = QuestionGenerator.makeQuestion(r.a, r.b, 4, r.type, { missing: r.missing, r: r.r });
             this.isRevenge = true;
         }
-        // 2) 苦手リスト面（にがてリベンジ/メタモン）はリストから出題
+        // 2) 苦手リスト面（にがてリベンジ/とっくん）はリストから出題 [a, b, type]
         else if (this.weakFactList) {
             const f = this.weakFactList[Math.floor(Math.random() * this.weakFactList.length)];
-            q = QuestionGenerator.makeQuestion(f[0], f[1], 4);
+            q = QuestionGenerator.makeQuestion(f[0], f[1], 4, f[2]);
         }
-        // 3) W1ジム序盤（敵HPが半分になるまで＝最初の3〜5問）は n×1, n×2… の順出題（足場かけ）
+        // 3) おぼえタイムのある面の序盤（敵HPが半分になるまで）は ×1, ×2… の順出題（足場かけ）
+        //    段が2つある面は こうごに（2÷2, 3÷3, 4÷2, 6÷3 …）
         else if (this.stage.oboeTime && this.enemyHp > this.enemyMaxHp / 2) {
-            const dan = this.stage.dans[0];
-            const b = (this.orderedIndex % 9) + 1;
+            const dans = this.stage.dans;
+            const dan = dans[this.orderedIndex % dans.length];
+            const b = Math.floor(this.orderedIndex / dans.length) % 9 + 1;
             this.orderedIndex++;
-            q = QuestionGenerator.makeQuestion(dan, b, 4);
+            q = QuestionGenerator.makeQuestion(dan, b, 4, this._pickType());
         }
-        // 4) 通常: 苦手混入（W2:20%, W3:30%）または範囲内から重み付き抽選
+        // 4) 通常: 苦手混入（ワールドごとの率）または範囲内から重み付き抽選
         else {
+            const type = this._pickType();
             const mixRate = GameConfig.battle.weakMixRate[this.stage.world] || 0;
-            const weakPool = (mixRate > 0 ? GameState.getWeakFacts(12) : []).filter(w =>
+            const prefix = QuestionGenerator.keyPrefix(type);
+            const inRange = (w) => this.stage.mode !== "wari" || prefix !== "d" || this.stage.dans.indexOf(w.a) >= 0;
+            const weakPool = ((mixRate > 0 && type !== "rem") ? GameState.getWeakFacts(12, prefix) : []).filter(w =>
+                inRange(w) &&
                 !QuestionGenerator._recentKeys.includes(w.key) &&
                 !this.revengeQueue.some(r => r.a === w.a && r.b === w.b));
-            const type = this._pickType();
             if (weakPool.length > 0 && Math.random() < mixRate) {
                 const w = weakPool[Math.floor(Math.random() * weakPool.length)];
                 q = QuestionGenerator.makeQuestion(w.a, w.b, 4, type);
@@ -255,10 +303,14 @@ const BattleManager = {
         }
 
         // ヒントモード: 同じ問題を2回連続で間違えていたら2択＋ヒント
+        // （わりざん系は ÷の2択、あまりは あまりの2択、かけざん系は ×の2択）
         let hintText = null;
         const fact = GameState.getFact(q.key);
         if (fact.cw >= 2) {
-            q = QuestionGenerator.makeQuestion(q.a, q.b, 2);
+            let ht = "normal";
+            if (QuestionGenerator.isDivType(q.type)) ht = "div";
+            else if (q.type === "rem") ht = "rem";
+            q = QuestionGenerator.makeQuestion(q.a, q.b, 2, ht, { r: q.r });
             hintText = this._makeHint(q);
         }
 
@@ -283,8 +335,32 @@ const BattleManager = {
         });
     },
 
-    // ヒント: 「7×6は 7×5より 7おおきい」＋ドット図
+    // ヒント（答えそのものは見せず、考え方を見せる）
     _makeHint: function(q) {
+        // わりざん: わる数の だんを ならべる（数えると こたえに なる）
+        if (QuestionGenerator.isDivType(q.type)) {
+            let chips = "";
+            for (let k = 1; k <= q.b; k++) {
+                chips += '<span class="hint-chip' + (k === q.b ? " hint-chip-last" : "") + '">' + (q.a * k) + "</span>";
+            }
+            return "ヒント: " + q.a + "のだんで " + q.c + " は なんばんめ？" +
+                   '<div class="hint-chips">' + chips + "</div>";
+        }
+        // あまり: わる数の だんで こえない いちばん おおきい かずを さがす
+        if (q.type === "rem") {
+            let chips = "";
+            for (let k = 1; k <= q.b + 1; k++) {
+                chips += '<span class="hint-chip' + (k === q.b + 1 ? " hint-chip-over" : "") + '">' + (q.a * k) + "</span>";
+            }
+            return "ヒント: " + q.a + "のだんで " + q.c + " を こえない いちばん おおきい かずは？" +
+                   '<div class="hint-chips">' + chips + "</div>";
+        }
+        // 10〜12の だん: 10 と のこり に わける
+        if (q.big) {
+            const big = q.a >= 10 ? q.a : q.b, small = q.a >= 10 ? q.b : q.a;
+            if (big === 10) return "ヒント: " + small + " が 10こ あつまった かず";
+            return "ヒント: 10×" + small + " と " + (big - 10) + "×" + small + " を あわせた かず";
+        }
         const prev = q.a * (q.b - 1);
         let text = "";
         if (q.b > 1) {
@@ -293,8 +369,7 @@ const BattleManager = {
         } else {
             text = "ヒント: " + q.a + "×1 は " + q.a + " のまま！";
         }
-        // ドット図（a×b個の●）— 行数を少なくして小さい画面でも収まるように、
-        // 行＝小さい方の数、列＝大きい方の数で並べる。大きすぎる場合は省略
+        // ドット図（a×b個の●）— 行＝小さい方の数、列＝大きい方の数。大きすぎる場合は省略
         if (q.a * q.b <= 45) {
             const rows = Math.min(q.a, q.b);
             const cols = Math.max(q.a, q.b);
@@ -338,13 +413,14 @@ const BattleManager = {
     // ゲンガーのいたずら: 3の倍数の問題で1.2秒後に選択肢を入れ替える
     _startShuffleGimmick: function() {
         const enemy = this._currentEnemy();
-        if (enemy.gimmick !== "shuffle") return;
+        if (!this._hasG(enemy, "shuffle")) return;
         if (this.questionCount % 3 !== 0) return;
-        // ヒントモード(2択)の子にいたずらは重ねない。式を4つ読む「ぎゃくびき」問題でも発動しない
-        if (this.currentQ && (this.currentQ.options.length === 2 || this.currentQ.type === "reverse")) return;
+        // ヒントモード(2択)の子にいたずらは重ねない。式や「あまり」を読む問題でも発動しない
+        const noShuffle = (q) => !q || q.options.length === 2 || ["reverse", "divReverse", "rem"].indexOf(q.type) >= 0;
+        if (noShuffle(this.currentQ)) return;
         this._shuffleTimer = this._later(1200, () => {
             if (this._answered || this.awaitingCorrectTap || this.isInputBlocked) return;
-            if (!this.currentQ || this.currentQ.options.length === 2 || this.currentQ.type === "reverse") return;
+            if (noShuffle(this.currentQ)) return;
             QuestionGenerator._shuffle(this.currentQ.options);
             UIManager.renderQuestion(this.currentQ, this.currentHint);
             UIManager.setOptionsEnabled(true);
@@ -419,10 +495,11 @@ const BattleManager = {
         // ダメージ決定
         let damage = isVolt ? conf.voltDamage : (isCrit ? conf.criticalDamage : conf.normalDamage);
 
-        // ミュウツーのバリア: クリティカルか10まんボルトでないと通らない
+        // バリア: 決められた時間いない（既定3びょう）の正解・リベンジ・ひっさつわざ でないと通らない
         const enemy = this._currentEnemy();
+        const passMs = (enemy.barrierMs || conf.criticalTime) * (GameState.settings.slow ? 1.5 : 1);
         let barriered = false;
-        if (enemy.gimmick === "barrier" && !isCrit && !isVolt) {
+        if (this._hasG(enemy, "barrier") && !isVolt && !this.isRevenge && elapsed > passMs) {
             damage = 0;
             barriered = true;
         }
@@ -438,7 +515,8 @@ const BattleManager = {
         // 攻撃演出
         this._later(350, () => {
             if (barriered) {
-                UIManager.showCommentary("バリアに ふせがれた！ 3びょういないで こたえよう！", 1800);
+                UIManager.showCommentary(enemy.barrierText ||
+                    ("バリアに ふせがれた！ " + Math.round(passMs / 1000) + "びょういないで こたえよう！"), 1800);
                 SoundManager.playSE("damage");
                 this._afterAttack(0);
                 return;
@@ -450,7 +528,7 @@ const BattleManager = {
                 SoundManager.playSE("burst");
                 EffectManager.playBurst();
                 EffectManager.playPlayerAttack(damage, true);
-                UIManager.showRandomCommentary("volt");
+                UIManager.showCommentary(UIManager.specialMove.name + "！！ ひっさつだ！", 1800);
                 UIManager.triggerShake();
             } else {
                 SoundManager.playSE("attack");
@@ -475,7 +553,7 @@ const BattleManager = {
         const enemy = this._currentEnemy();
 
         // ディアルガ: 正解するたび制限時間が縮む（accelMin まで）
-        if (enemy.gimmick === "accel" && this.currentTimeLimit) {
+        if (this._hasG(enemy, "accel") && this.currentTimeLimit) {
             const slowMul = GameState.settings.slow ? 1.5 : 1;
             const minT = Math.round((enemy.accelMin || 3000) * slowMul);
             const step = Math.round((enemy.accelStep || 300) * slowMul);
@@ -489,17 +567,33 @@ const BattleManager = {
             }
         }
 
-        // 怒りモード（HP半分で2形態目）
-        if (enemy.gimmick === "rage" && !this.raged &&
+        // 変身（HP半分で2形態目）: おこる / キョダイマックス / メガシンカ / しんか
+        if (this._hasG(enemy, "rage") && !this.raged &&
             this.enemyHp > 0 && this.enemyHp <= this.enemyMaxHp / 2) {
             this.raged = true;
-            UIManager.setEnemyRage(enemy.rageImg);
-            SoundManager.playSE("damage");
+            const style = enemy.rageStyle || "rage";
+            UIManager.setEnemyRage(enemy.rageImg, style, enemy.rageName);
+            if (style === "dynamax") { SoundManager.playSE("burst"); UIManager.triggerShake(); }
+            else if (style === "mega" || style === "evolve") SoundManager.playSE("evolution");
+            else SoundManager.playSE("damage");
+            let text = enemy.rageText;
             if (enemy.rageTimeCut && this.currentTimeLimit) {
                 this.currentTimeLimit = Math.max(3000, this.currentTimeLimit - enemy.rageTimeCut);
-                UIManager.showCommentary(enemy.key + "が おこった！ じかんが みじかくなる！", 2000);
-            } else {
-                UIManager.showCommentary(enemy.key + "が おこった！", 2000);
+                if (!text) text = enemy.key + "が おこった！ じかんが みじかくなる！";
+            }
+            UIManager.showCommentary(text || (enemy.key + "が おこった！"), 2400);
+        }
+
+        // おめんチェンジ（HPが へるごとに 姿と 出題形式が かわる）
+        if (enemy.masks && this.enemyHp > 0) {
+            const idx = Math.min(enemy.masks.length - 1,
+                Math.floor((1 - this.enemyHp / this.enemyMaxHp) * enemy.masks.length));
+            if (idx > this.maskIndex) {
+                this.maskIndex = idx;
+                const m = enemy.masks[idx];
+                UIManager.setEnemyRage(m.img, "mask", m.name);
+                SoundManager.playSE("evolution");
+                UIManager.showCommentary(m.text, 2200);
             }
         }
 
@@ -520,7 +614,7 @@ const BattleManager = {
 
         const img = document.getElementById("enemy-img");
         if (img) {
-            img.classList.remove("enemy-defeated");
+            img.classList.remove("enemy-defeated", "enemy-hit", "enemy-attack", "enemy-transform");
             void img.offsetWidth;
             img.classList.add("enemy-defeated");
         }
@@ -548,13 +642,13 @@ const BattleManager = {
 
         // リベンジ予約: 2〜3問後に同じ形式で必ず再出題
         this.revengeQueue.push({
-            a: q.a, b: q.b, type: q.type, missing: q.missing,
+            a: q.a, b: q.b, type: q.type, missing: q.missing, r: q.r,
             due: this.questionCount + 2 + Math.floor(Math.random() * 2)
         });
 
         // ディアルガ: 間違えたら制限時間を少し戻す（救済）
         const enemyNow = this._currentEnemy();
-        if (enemyNow.gimmick === "accel" && this.baseTimeLimit && this.currentTimeLimit) {
+        if (this._hasG(enemyNow, "accel") && this.baseTimeLimit && this.currentTimeLimit) {
             const step = Math.round((enemyNow.accelStep || 300) * (GameState.settings.slow ? 1.5 : 1));
             this.currentTimeLimit = Math.min(this.baseTimeLimit, this.currentTimeLimit + step * 2);
         }
@@ -566,7 +660,7 @@ const BattleManager = {
 
         // 敵の攻撃（ソーナンスのカウンターはハート2）
         const enemy = this._currentEnemy();
-        const dmg = (enemy.gimmick === "counter") ? 2 : 1;
+        const dmg = this._hasG(enemy, "counter") ? 2 : 1;
 
         this._later(400, () => {
             EffectManager.playEnemyDamage(dmg);
@@ -575,7 +669,7 @@ const BattleManager = {
             UIManager.renderHearts(this.hearts, this.stage.hearts);
             UIManager.shakeHeart();
             if (dmg === 2) {
-                UIManager.showCommentary("カウンター！ ハートが2つ へった！", 1800);
+                UIManager.showCommentary("カウンター！ ハートが2つ へった！", 1000);
             }
 
             // 訂正入力: 正解を光らせてタップさせる（学習の核）
@@ -583,7 +677,7 @@ const BattleManager = {
                 this.pendingDefeat = (this.hearts <= 0);
                 this.awaitingCorrectTap = true;
                 UIManager.highlightCorrect(q.answer);
-                UIManager.showYomiTelop(q, true);
+                UIManager.showYomiTelop(q, true, dmg === 2 ? "💥 カウンター！ ハートが 2つ へった" : null);
             });
         });
     },
@@ -597,7 +691,7 @@ const BattleManager = {
             btn.classList.add("option-answered-correct");
         }
         SoundManager.playSE("correct");
-        UIManager.showRandomCommentary("wrong");
+        UIManager.showRandomCommentary(this.stage.mode === "wari" ? "divWrong" : "wrong");
 
         if (this.pendingDefeat) {
             this.pendingDefeat = false;
@@ -624,11 +718,16 @@ const BattleManager = {
 
         let newCostumes = [];
         let firstClear = false;
+        // はじめて図鑑に のる ポケモンが いるか（リザルトの文言用）
+        const dexBefore = GameState.countDex();
 
-        if (this.isMetamon) {
+        if (this.trainingKind === "metamon") {
             firstClear = !GameState.isMetamonDoneToday();
             newCostumes = GameState.registerMetamonClear() || [];
             GameState.dex["メタモン"] = true;
+        } else if (this.trainingKind === "eevee") {
+            firstClear = !GameState.isDivTrainingDoneToday();
+            newCostumes = GameState.registerDivTrainingClear(this._currentEnemy().key) || [];
         } else {
             firstClear = !GameState.isStageCleared(this.stage.id);
             newCostumes = GameState.registerClear(this.stage.id, stars) || [];
@@ -638,6 +737,7 @@ const BattleManager = {
         ResultScreen.showVictory({
             stage: this.stage,
             isMetamon: this.isMetamon,
+            trainingKind: this.trainingKind,
             stars: stars,
             correct: this.correctTotal,
             wrong: this.wrongTotal,
@@ -645,7 +745,8 @@ const BattleManager = {
             critRate: Math.round(critRate * 100),
             missedFacts: this.missedFacts,
             newCostumes: newCostumes,
-            firstClear: firstClear
+            firstClear: firstClear,
+            newDex: GameState.countDex() > dexBefore
         });
     },
 
@@ -661,6 +762,7 @@ const BattleManager = {
         ResultScreen.showDefeat({
             stage: this.stage,
             isMetamon: this.isMetamon,
+            trainingKind: this.trainingKind,
             missedFacts: this.missedFacts
         });
     },
@@ -670,23 +772,55 @@ const BattleManager = {
     // ==========================================
     _oboeInterval: null,
 
-    _showOboe: function(dan, callback) {
+    _showOboe: function(stage, callback) {
         const overlay = document.getElementById("battle-oboe");
         const list = document.getElementById("battle-oboe-list");
         const title = document.getElementById("battle-oboe-title");
         if (!overlay || !list) { callback(); return; }
 
-        if (title) title.textContent = dan + "のだんを おぼえよう！";
+        const session = this._session;
+        const skipBtn = document.getElementById("battle-oboe-skip");
+        if (skipBtn) skipBtn.onclick = () => {
+            if (session !== this._session) return;
+            this._finishOboe(callback);
+        };
+
+        // あまりの ある わりざん: せつめいカード（ボタンで すすむ）
+        if (stage.oboeKind === "rem") {
+            if (title) title.textContent = "あまりの ある わりざん";
+            list.innerHTML = this._remExplainHtml();
+            overlay.style.display = "flex";
+            return;
+        }
+
+        const dans = stage.dans;
+        const isDiv = stage.mode === "wari";
+        const two = dans.length > 1;
+        if (title) {
+            title.innerHTML = dans.join("と") + (isDiv ? "の わりざんを おぼえよう！" : "の だんを おぼえよう！") +
+                (isDiv ? '<div class="oboe-sub">こたえは 九九で みつかるよ</div>' : "");
+        }
         let html = "";
         for (let b = 1; b <= 9; b++) {
-            html += '<div class="oboe-row" id="oboe-row-' + b + '">' +
-                    '<span class="oboe-shiki">' + dan + " × " + b + " = " + (dan * b) + "</span>" +
-                    '<span class="oboe-yomi">' + GameConfig.getYomi(dan, b) + "</span></div>";
+            html += '<div class="oboe-row' + (two ? " oboe-row2" : "") + '" id="oboe-row-' + b + '">';
+            dans.forEach(d => {
+                if (isDiv) {
+                    html += '<span class="oboe-cell"><span class="oboe-shiki">' + (d * b) + " ÷ " + d + " = " + b + "</span>" +
+                            '<span class="oboe-yomi">' + d + "×" + b + "=" + (d * b) + "</span></span>";
+                } else if (two) {
+                    const small = d > 9 ? '<span class="oboe-yomi">' + (d === 10 ? b + "が 10こ" : "10×" + b + "と" + (d - 10) + "×" + b) + "</span>" : "";
+                    html += '<span class="oboe-cell"><span class="oboe-shiki">' + d + " × " + b + " = " + (d * b) + "</span>" + small + "</span>";
+                } else {
+                    const note = d > 9 ? (d === 10 ? b + "が 10こ" : "10×" + b + " と " + (d - 10) + "×" + b) : GameConfig.getYomi(d, b);
+                    html += '<span class="oboe-shiki">' + d + " × " + b + " = " + (d * b) + "</span>" +
+                            '<span class="oboe-yomi">' + note + "</span>";
+                }
+            });
+            html += "</div>";
         }
         list.innerHTML = html;
         overlay.style.display = "flex";
 
-        const session = this._session;
         let i = 1;
         const highlight = () => {
             if (session !== this._session) {
@@ -705,13 +839,21 @@ const BattleManager = {
         };
         highlight();
         this._oboeInterval = setInterval(highlight, 1000);
+    },
 
-        // スキップボタン
-        const skipBtn = document.getElementById("battle-oboe-skip");
-        if (skipBtn) skipBtn.onclick = () => {
-            if (session !== this._session) return;
-            this._finishOboe(callback);
-        };
+    // あまりの ある わりざんの せつめい
+    _remExplainHtml: function() {
+        let groups = "";
+        for (let g = 0; g < 3; g++) groups += '<span class="rem-group">🍎🍎🍎🍎</span>';
+        return '<div class="oboe-rem">' +
+            '<div class="rem-line">13この きのみを <b>4こずつ</b> わけると…</div>' +
+            '<div class="rem-visual">' + groups + '<span class="rem-left">🍎</span></div>' +
+            '<div class="rem-line">4こずつ <b>3つ</b> できて、<b>1こ</b> あまる！</div>' +
+            '<div class="rem-shiki">13 ÷ 4 = 3 あまり 1</div>' +
+            '<div class="rem-line">4 × 3 = 12、 13 − 12 = 1</div>' +
+            '<div class="rem-note">⚠ あまりは いつも わる数（4）より ちいさい！</div>' +
+            '<div class="rem-tip">こつ: 4のだんで 13を こえない いちばん おおきい かず（12）を さがそう</div>' +
+            "</div>";
     },
 
     _finishOboe: function(callback) {

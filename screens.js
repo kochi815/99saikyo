@@ -22,19 +22,20 @@ const TitleScreen = {
         const img = document.getElementById("title-pika");
         if (img) img.src = "img/" + (GameConfig.monthlyPika[month] || "ピカチュウ01.gif");
 
-        // 裏面クリアで王冠、九九マスター認定でトロフィー
+        // しょうごう: 裏面クリアで王冠、九九マスター・わりざんマスターで トロフィー
+        const f = GameState.flags;
+        let crownText = "", tag = "ポケモンと 九九マスターへの たび";
+        if (f.masterCleared && f.divMasterCleared) { crownText = "👑🏆👑"; tag = "〜かけざん・わりざん 最強王〜"; }
+        else if (f.divMasterCleared)               { crownText = "🏆";     tag = "〜わりざん マスター〜"; }
+        else if (f.masterCleared)                  { crownText = "🏆👑🏆"; tag = "〜でんせつの 九九マスター〜"; }
+        else if (f.exCleared)                      { crownText = "👑";     tag = "〜きみこそ 九九最強王！〜"; }
         const crown = document.getElementById("title-crown");
         if (crown) {
-            crown.style.display = (GameState.flags.exCleared || GameState.flags.masterCleared) ? "block" : "none";
-            crown.textContent = GameState.flags.masterCleared ? "🏆👑🏆" : "👑";
+            crown.style.display = crownText ? "block" : "none";
+            crown.textContent = crownText;
         }
-
         const titleTag = document.getElementById("title-tag");
-        if (titleTag) {
-            if (GameState.flags.masterCleared) titleTag.textContent = "〜でんせつの 九九マスター〜";
-            else if (GameState.flags.exCleared) titleTag.textContent = "〜きみこそ 九九最強王！〜";
-            else titleTag.textContent = "ポケモンと 九九マスターへの たび";
-        }
+        if (titleTag) titleTag.textContent = tag;
 
         // はじめる／つづきから
         const btn = document.getElementById("title-start-btn");
@@ -54,7 +55,7 @@ const MapScreen = {
     show: function(hideIds) {
         // まだ見ていないお祝い演出があれば先にそちらへ（達成順）。
         // 勝利画面から以外（敗北・にげる・タイトル）でマップに戻った場合も取りこぼさない。
-        // Ending.close() が再び MapScreen.show を呼ぶので、複数たまっていても順番に流れる
+        // Ending.close() / EvolveScreen.close() が再び MapScreen.show を呼ぶので、複数たまっていても順番に流れる
         const f = GameState.flags;
         if (GameState.isStageCleared("s34") && !f.endingSeen) {
             f.endingSeen = true; StorageManager.save();
@@ -68,16 +69,90 @@ const MapScreen = {
             f.masterCleared = true; f.masterSeen = true; StorageManager.save();
             Ending.showMaster(hideIds); return;
         }
+        // パートナーの しんか
+        if (GameState.div.partner && GameState.partnerEvoLevel() > GameState.div.evoSeen) {
+            EvolveScreen.show(hideIds); return;
+        }
+        // 追加コンテンツの おいわい
+        for (const c of GameConfig.celebrations) {
+            if (GameState.isStageCleared(c.stage) && !f[c.seen]) {
+                f[c.seen] = true;
+                if (c.cleared) f[c.cleared] = true;
+                StorageManager.save();
+                Ending.showGeneric(hideIds, c);
+                return;
+            }
+        }
         this.render();
         TransitionManager.fade(hideIds, "map-screen", "block", () => {
             SoundManager.playBGM("bgm_home");
         });
     },
 
+    // いま表示するモード（わりざんは ひらいていて パートナーが いるときだけ）
+    currentMode: function() {
+        return (GameState.settings.mode === "wari" && GameState.isDivUnlocked() && GameState.div.partner) ? "wari" : "kake";
+    },
+
+    // タブで モードを きりかえる
+    setMode: function(mode) {
+        if (TransitionManager._busy) return;
+        if (mode === "wari") {
+            if (!GameState.isDivUnlocked()) {
+                SoundManager.playSE("wrong");
+                this.toast("🔒 かけざんの「ジムボス」を たおすと わりざんが ひらくよ！");
+                return;
+            }
+            SoundManager.playSE("select");
+            GameState.settings.mode = "wari";
+            StorageManager.save();
+            if (!GameState.div.introSeen) { DivIntroScreen.show(["map-screen"]); return; }
+            if (!GameState.div.partner) { PartnerScreen.show(["map-screen"], true); return; }
+        } else {
+            SoundManager.playSE("select");
+            GameState.settings.mode = "kake";
+            StorageManager.save();
+        }
+        this.render();
+        const scr = document.getElementById("map-screen");
+        if (scr) scr.scrollTop = 0;
+    },
+
+    _toastTimer: null,
+    toast: function(text) {
+        const el = document.getElementById("map-toast");
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove("toast-show");
+        void el.offsetWidth;
+        el.classList.add("toast-show");
+        if (this._toastTimer) clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => el.classList.remove("toast-show"), 2600);
+    },
+
     render: function() {
-        // ヘッダー: バッジ・星・ずかん・金マス
+        const mode = this.currentMode();
+        const isWari = mode === "wari";
+        const scr = document.getElementById("map-screen");
+        if (scr) scr.classList.toggle("mode-wari", isWari);
+
+        // モードのタブ
+        const tabK = document.getElementById("map-tab-kake");
+        const tabW = document.getElementById("map-tab-wari");
+        if (tabK) tabK.classList.toggle("tab-active", !isWari);
+        if (tabW) {
+            tabW.classList.toggle("tab-active", isWari);
+            tabW.classList.toggle("tab-locked", !GameState.isDivUnlocked());
+            const isNew = GameState.isDivUnlocked() && !GameState.div.partner;
+            tabW.innerHTML = (GameState.isDivUnlocked() ? "➗ わりざん" : "🔒 わりざん") +
+                             (isNew ? ' <span class="tab-new">NEW</span>' : "");
+        }
+
+        // ヘッダー: かけざん=だんバッジ / わりざん=パートナー
         const badgeWrap = document.getElementById("map-badges");
+        const partnerWrap = document.getElementById("map-partner");
         if (badgeWrap) {
+            badgeWrap.style.display = isWari ? "none" : "";
             let html = "";
             for (let d = 1; d <= 9; d++) {
                 const owned = GameState.badges.includes(d);
@@ -85,12 +160,35 @@ const MapScreen = {
             }
             badgeWrap.innerHTML = html;
         }
+        if (partnerWrap) {
+            partnerWrap.style.display = isWari ? "" : "none";
+            if (isWari) partnerWrap.innerHTML = this._partnerHeaderHtml();
+        }
         const statEl = document.getElementById("map-stats");
         if (statEl) {
-            statEl.innerHTML =
-                "⭐" + GameState.totalStars() +
-                "　📖" + GameState.countDex() + "/" + GameConfig.dexList.length +
-                "　🏅きんマス " + GameState.countGold() + "/81";
+            const dexText = "📖" + GameState.countDex() + "/" + GameConfig.dexList.length;
+            statEl.innerHTML = isWari
+                ? "⭐" + GameState.starsOf(GameConfig.divStageOrder) + "　" + dexText + "　🏅わりざん きんマス " + GameState.countGold("d") + "/81"
+                : "⭐" + GameState.starsOf(GameConfig.stageOrder) + "　" + dexText + "　🏅きんマス " + GameState.countGold() + "/81";
+        }
+
+        // メニュー（モードで なかみが かわる）
+        const setBtn = (id, html, show) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (html !== null) el.innerHTML = html;
+            el.style.display = show === false ? "none" : "";
+        };
+        setBtn("map-kuku-btn", isWari ? "🗺️ わりざんマップ" : "🗺️ くくマップ");
+        setBtn("map-dress-btn", isWari ? "🤝 パートナー" : "🎀 きせかえ");
+        setBtn("map-help-btn", null, isWari);
+        if (isWari) {
+            const e = GameState.todaysEevee();
+            setBtn("map-metamon-btn", '<img src="img/' + e.img + '" alt="" class="menu-icon-img">とっくん' +
+                (GameState.isDivTrainingDoneToday() ? ' <span class="metamon-done">きょうはクリアずみ✓</span>' : ' <span class="metamon-new">!</span>'));
+        } else {
+            setBtn("map-metamon-btn", '<img src="img/メタモン01.gif" alt="" class="menu-icon-img">とっくん' +
+                (GameState.isMetamonDoneToday() ? ' <span class="metamon-done">きょうはクリアずみ✓</span>' : ' <span class="metamon-new">!</span>'));
         }
 
         // ステージノード
@@ -98,12 +196,13 @@ const MapScreen = {
         if (!wrap) return;
         let html = "";
         let currentWorld = 0;
+        const order = isWari ? GameConfig.divStageOrder : GameConfig.stageOrder;
 
-        GameConfig.stageOrder.forEach(id => {
+        order.forEach(id => {
             const stage = GameConfig.getStage(id);
             if (!stage) return;
 
-            // 指定ステージをクリアするまで非表示（裏面・でんせつワールド）
+            // 指定ステージをクリアするまで非表示（裏面・でんせつワールド・メガシンカ・あまり）
             if (stage.hiddenUntil && !GameState.isStageCleared(stage.hiddenUntil)) return;
 
             if (stage.world !== currentWorld) {
@@ -134,13 +233,18 @@ const MapScreen = {
                     lockHtml = '<span class="node-lock">🔒</span>';
                 }
             }
+            // パートナーが しんかする ステージの しるし
+            let evoHtml = "";
+            if (isWari && GameConfig.partnerEvoStages.indexOf(id) >= 0 && !cleared) {
+                evoHtml = '<span class="node-evo">✨ クリアで パートナーが しんか！</span>';
+            }
 
             html += '<div class="' + cls + '" data-stage="' + id + '">' +
                     '<img class="node-img" src="img/' + stage.enemies[0].img + '" alt="">' +
                     '<div class="node-info">' +
                     '<div class="node-name">' + stage.name + "</div>" +
                     '<div class="node-sub">' + stage.subName + "</div>" +
-                    starHtml + lockHtml +
+                    starHtml + lockHtml + evoHtml +
                     "</div></div>";
         });
         wrap.innerHTML = html;
@@ -161,19 +265,36 @@ const MapScreen = {
                 BattleManager.startStage(id);
             });
         });
+    },
 
-        // メタモンとっくんの表示
-        const metaBtn = document.getElementById("map-metamon-btn");
-        if (metaBtn) {
-            metaBtn.innerHTML = '<img src="img/メタモン01.gif" alt="" class="menu-icon-img">とっくん' +
-                (GameState.isMetamonDoneToday() ? ' <span class="metamon-done">きょうはクリアずみ✓</span>' : ' <span class="metamon-new">!</span>');
+    // わりざんモードの ヘッダー（パートナーと つぎの しんか）
+    _partnerHeaderHtml: function() {
+        const p = GameState.partnerDef();
+        const form = GameState.partnerForm();
+        const lv = GameState.partnerLevel();
+        let next = "";
+        if (lv < GameConfig.partnerEvoStages.length) {
+            const st = GameConfig.getStage(GameConfig.partnerEvoStages[lv]);
+            next = "つぎの しんか: 「" + st.name + "」を たおそう";
+        } else {
+            next = "さいごの すがたに しんかした！";
         }
+        return '<div class="partner-head" style="--pc:' + p.color + '">' +
+               '<img src="img/' + form.img + '" alt="">' +
+               '<div><div class="partner-head-name">' + form.key + ' <span class="partner-type">' + p.type + "</span></div>" +
+               '<div class="partner-head-next">' + next + "</div></div></div>";
+    },
+
+    // とっくん（かけざん=メタモン / わりざん=イーブイ）
+    startTraining: function() {
+        if (TransitionManager._busy) return;
+        SoundManager.playSE("select");
+        if (this.currentMode() === "wari") BattleManager.startDivTraining();
+        else BattleManager.startMetamon();
     },
 
     startMetamon: function() {
-        if (TransitionManager._busy) return;
-        SoundManager.playSE("select");
-        BattleManager.startMetamon();
+        this.startTraining();
     }
 };
 
@@ -235,8 +356,10 @@ const ResultScreen = {
         const costumeEl = document.getElementById("victory-costumes");
         if (costumeEl) {
             if (result.newCostumes && result.newCostumes.length > 0) {
+                const wari = result.stage.mode === "wari";
                 costumeEl.innerHTML = result.newCostumes.map(c =>
-                    '<div class="new-costume">🎁 きせかえ「' + c.name + '」を ゲット！</div>').join("");
+                    '<div class="new-costume">🎁 ' + (wari ? "ピカチュウの " : "") + "きせかえ「" + c.name + "」を ゲット！" +
+                    (wari ? '<br><small>（かけざんの マップで きがえられるよ）</small>' : "") + "</div>").join("");
             } else {
                 costumeEl.innerHTML = "";
             }
@@ -268,7 +391,10 @@ const ResultScreen = {
             SoundManager.playSE("evolution");
             this._later(1400, () => {
                 if (capText) {
-                    capText.textContent = result.isMetamon ? "メタモンと なかよくなった！" : "ずかんに とうろく！";
+                    const last = result.stage.enemies[result.stage.enemies.length - 1];
+                    if (result.trainingKind === "metamon") capText.textContent = "メタモンと なかよくなった！";
+                    else if (result.trainingKind === "eevee") capText.textContent = last.key + "と なかよくなった！" + (result.newDex ? " ずかんに とうろく！" : "");
+                    else capText.textContent = result.newDex ? "ずかんに とうろく！" : "つかまえた！";
                 }
                 this._showStars(result.stars);
             });
@@ -300,9 +426,9 @@ const ResultScreen = {
         }
         let html = '<div class="review-title">📝 こんかいの ふくしゅう</div>';
         keys.forEach(k => {
-            const q = missedFacts[k];
-            html += '<div class="review-row"><b>' + q.a + " × " + q.b + " = " + (q.a * q.b) + "</b>" +
-                    '<span class="review-yomi">「' + q.yomi + '」</span></div>';
+            const d = QuestionGenerator.describe(missedFacts[k]);
+            html += '<div class="review-row"><b>' + d.shiki + "</b>" +
+                    '<span class="review-yomi">' + d.note + "</span></div>";
         });
         el.innerHTML = html;
     },
@@ -322,23 +448,36 @@ const ResultScreen = {
         SoundManager.playSE("select");
         this._token++;
         const r = this._lastResult;
-        if (r && r.isMetamon) BattleManager.startMetamon(["victory-screen"]);
-        else if (r) BattleManager.startStage(r.stage.id, ["victory-screen"]);
+        this._restart(r, ["victory-screen"]);
+    },
+
+    _restart: function(r, fromIds) {
+        if (!r) return;
+        if (r.trainingKind === "eevee") BattleManager.startDivTraining(fromIds);
+        else if (r.isMetamon) BattleManager.startMetamon(fromIds);
+        else BattleManager.startStage(r.stage.id, fromIds);
     },
 
     // --- 敗北 ---
     showDefeat: function(result) {
-        this._lastResult = { stage: result.stage, isMetamon: result.isMetamon };
+        this._lastResult = { stage: result.stage, isMetamon: result.isMetamon, trainingKind: result.trainingKind };
         this._renderReviewList("defeat-review", result.missedFacts);
+        // わりざんモードは パートナーが つかれる
+        const isWari = result.stage.mode === "wari";
+        const t = document.getElementById("defeat-title");
+        const im = document.getElementById("defeat-pika");
+        if (t) t.textContent = (isWari ? GameState.partnerForm().key : "ピカチュウ") + "は つかれた…";
+        if (im) {
+            im.src = isWari ? GameState.getPartnerImg("wari") : "img/ピカチュウフェイス07.gif";
+            im.classList.toggle("defeat-partner", isWari);
+        }
         TransitionManager.fade(["battle-screen"], "defeat-screen", "flex", null, "fade-black");
     },
 
     defeatRetry: function() {
         if (TransitionManager._busy) return;
         SoundManager.playSE("select");
-        const r = this._lastResult;
-        if (r && r.isMetamon) BattleManager.startMetamon(["defeat-screen"]);
-        else if (r) BattleManager.startStage(r.stage.id, ["defeat-screen"]);
+        this._restart(this._lastResult, ["defeat-screen"]);
     },
 
     defeatToMap: function() {
@@ -363,6 +502,7 @@ const Ending = {
             });
             parade.innerHTML = html + html;  // ループ用に2周分
         }
+        this._setPika(null);
         const title = document.getElementById("ending-title");
         if (title) title.textContent = "🏆 九九チャンピオン にんてい！ 🏆";
         const msg = document.getElementById("ending-msg");
@@ -379,6 +519,7 @@ const Ending = {
     showSaikyoou: function(hideIds) {
         const parade = document.getElementById("ending-parade");
         if (parade) parade.innerHTML = '<img class="parade-img parade-big" src="img/ミュウ01.gif" alt="">';
+        this._setPika(null);
         const title = document.getElementById("ending-title");
         if (title) title.textContent = "👑 しょうごう「九九最強王」かくとく！ 👑";
         const msg = document.getElementById("ending-msg");
@@ -400,6 +541,7 @@ const Ending = {
             const html = legends.map(f => '<img class="parade-img parade-legend" src="img/' + f + '" alt="">').join("");
             parade.innerHTML = html + html;
         }
+        this._setPika(null);
         const title = document.getElementById("ending-title");
         if (title) title.textContent = "🏆 九九マスター にんてい！ 🏆";
         const msg = document.getElementById("ending-msg");
@@ -415,6 +557,30 @@ const Ending = {
         });
     },
 
+    // 追加コンテンツ用（config-div.js の celebrations）
+    showGeneric: function(hideIds, c) {
+        const parade = document.getElementById("ending-parade");
+        if (parade) {
+            const html = (c.parade || []).map(f => '<img class="parade-img parade-legend" src="img/' + f + '" alt="">').join("");
+            parade.innerHTML = html + html;
+        }
+        this._setPika(c.partnerImg ? GameState.getPartnerImg("wari") : null);
+        const title = document.getElementById("ending-title");
+        if (title) title.textContent = c.title;
+        const msg = document.getElementById("ending-msg");
+        if (msg) msg.innerHTML = c.msg;
+        TransitionManager.fade(hideIds, "ending-screen", "flex", () => {
+            SoundManager.playBGM("bgm_result");
+            SoundManager.playSE("trophy");
+        });
+    },
+
+    // エンディングの おいわいキャラ（null で ピカチュウ）
+    _setPika: function(src) {
+        const img = document.getElementById("ending-pika");
+        if (img) img.src = src || "img/ピカチュウ_お祝い.gif";
+    },
+
     close: function() {
         SoundManager.playSE("select");
         TitleScreen.render();
@@ -426,7 +592,10 @@ const Ending = {
 //  くくマップ（81マス）
 // ==========================================
 const KukuScreen = {
+    mode: "kake",
+
     show: function(hideIds) {
+        this.mode = MapScreen.currentMode();
         this.render();
         TransitionManager.fade(hideIds, "kuku-screen", "block");
     },
@@ -434,15 +603,20 @@ const KukuScreen = {
     render: function() {
         const grid = document.getElementById("kuku-grid");
         if (!grid) return;
+        const isWari = this.mode === "wari";
+        const prefix = isWari ? "d" : "";
 
-        let html = '<div class="kuku-cell kuku-header">×</div>';
+        const title = document.getElementById("kuku-title");
+        if (title) title.textContent = isWari ? "🗺️ わりざんマップ" : "🗺️ くくマップ";
+
+        let html = '<div class="kuku-cell kuku-header">' + (isWari ? "÷" : "×") + "</div>";
         for (let b = 1; b <= 9; b++) {
-            html += '<div class="kuku-cell kuku-header">' + b + "</div>";
+            html += '<div class="kuku-cell kuku-header">' + (isWari ? "=" + b : b) + "</div>";
         }
         for (let a = 1; a <= 9; a++) {
             html += '<div class="kuku-cell kuku-header">' + a + "</div>";
             for (let b = 1; b <= 9; b++) {
-                const level = GameState.getFactLevel(a + "x" + b);
+                const level = GameState.getFactLevel(prefix + a + "x" + b);
                 const cls = ["kuku-new", "kuku-learning", "kuku-silver", "kuku-gold"][level];
                 html += '<div class="kuku-cell kuku-fact ' + cls + '" data-a="' + a + '" data-b="' + b + '">' +
                         (level > 0 ? a * b : "?") + "</div>";
@@ -459,13 +633,15 @@ const KukuScreen = {
 
         const stat = document.getElementById("kuku-stats");
         if (stat) {
-            let gold = GameState.countGold();
+            const gold = GameState.countGold(prefix);
             let silver = 0;
             for (let a = 1; a <= 9; a++)
                 for (let b = 1; b <= 9; b++)
-                    if (GameState.getFactLevel(a + "x" + b) === 2) silver++;
+                    if (GameState.getFactLevel(prefix + a + "x" + b) === 2) silver++;
             stat.innerHTML = "🥇きん " + gold + "マス　🥈ぎん " + silver + "マス　" +
-                "<span class='kuku-hint-text'>3かい せいかいで ぎん、3びょういないに 3かい せいかいで きん！</span>";
+                "<span class='kuku-hint-text'>" +
+                (isWari ? "マスの かずを たての かずで わると、よこの かずに なるよ（42 ÷ 6 = 7）<br>" : "") +
+                "3かい せいかいで ぎん、3びょういないに 3かい せいかいで きん！</span>";
         }
     },
 
@@ -478,13 +654,19 @@ const KukuScreen = {
         const modal = document.getElementById("kuku-practice");
         if (!modal) return;
         if (this._closeTimer) { clearTimeout(this._closeTimer); this._closeTimer = null; }
-        this._practiceQ = QuestionGenerator.makeQuestion(a, b, 4);
+        const isWari = this.mode === "wari";
+        const q = QuestionGenerator.makeQuestion(a, b, 4, isWari ? "div" : "normal");
+        this._practiceQ = q;
         this._practiceAnswered = false;
 
         const qEl = document.getElementById("kuku-practice-q");
-        if (qEl) qEl.innerHTML = a + " × " + b + " = <span class='q-mark'>?</span>";
+        if (qEl) {
+            qEl.innerHTML = isWari
+                ? q.c + " ÷ " + a + " = <span class='q-mark'>?</span>"
+                : a + " × " + b + " = <span class='q-mark'>?</span>";
+        }
         const yomiEl = document.getElementById("kuku-practice-yomi");
-        if (yomiEl) yomiEl.textContent = this._practiceQ.yomiQ;
+        if (yomiEl) yomiEl.textContent = q.yomiQ;
         const fb = document.getElementById("kuku-practice-feedback");
         if (fb) fb.innerHTML = "";
 
@@ -492,10 +674,10 @@ const KukuScreen = {
         if (optWrap) {
             optWrap.innerHTML = "";
             const startTime = Date.now();
-            this._practiceQ.options.forEach(v => {
+            q.options.forEach(v => {
                 const btn = document.createElement("button");
                 btn.className = "option-btn option-small";
-                btn.innerHTML = '<span class="ball-icon"></span><span class="option-num">' + v + "</span>";
+                btn.innerHTML = '<span class="ball-icon"></span><span class="option-num">' + QuestionGenerator.optionLabel(q, v) + "</span>";
                 btn.addEventListener("click", () => this._onPracticeAnswer(v, btn, startTime));
                 optWrap.appendChild(btn);
             });
@@ -513,21 +695,22 @@ const KukuScreen = {
         GameState.recordAnswer(q.key, isCorrect, elapsed);
         StorageManager.save();
 
+        const d = QuestionGenerator.describe(q);
         const fb = document.getElementById("kuku-practice-feedback");
         if (isCorrect) {
             SoundManager.playSE("correct");
             btn.classList.add("option-answered-correct");
-            if (fb) fb.innerHTML = '<div class="practice-ok">⭕ せいかい！ 「' + q.yomi + "」</div>";
+            if (fb) fb.innerHTML = '<div class="practice-ok">⭕ せいかい！ ' + d.note + "</div>";
         } else {
             SoundManager.playSE("wrong");
             btn.classList.add("option-answered-wrong");
-            if (fb) fb.innerHTML = '<div class="practice-ng">❌ こたえは <b>' + q.answer + "</b>！ 「" + q.yomi + "」</div>";
+            if (fb) fb.innerHTML = '<div class="practice-ng">❌ ' + d.shiki + "<br>" + d.note + "</div>";
         }
 
         this._closeTimer = setTimeout(() => {
             this._closeTimer = null;
             this.closePractice();
-        }, 1600);
+        }, 2000);
     },
 
     closePractice: function() {
@@ -557,8 +740,16 @@ const DexScreen = {
         const grid = document.getElementById("dex-grid");
         if (!grid) return;
         let html = "";
+        let group = null;
         GameConfig.dexList.forEach((d, i) => {
             const owned = !!GameState.dex[d.key];
+            if (d.group !== group) {
+                group = d.group;
+                const inGroup = GameConfig.dexList.filter(x => x.group === group);
+                const got = inGroup.filter(x => GameState.dex[x.key]).length;
+                html += '<div class="dex-group-title">' + (GameConfig.dexGroups[group] || "") +
+                        ' <span class="dex-group-count">' + got + "/" + inGroup.length + "</span></div>";
+            }
             html += '<div class="dex-card' + (owned ? " dex-owned" : " dex-unknown") +
                     (d.boss ? " dex-boss" : "") + '" data-idx="' + i + '">' +
                     '<img src="img/' + d.img + '" alt="">' +
@@ -621,9 +812,11 @@ const DressScreen = {
             let condText = "";
             if (!unlocked) {
                 if (c.unlock.type === "star") condText = "⭐" + c.unlock.n + "こで かいほう";
-                else if (c.unlock.type === "metamon") condText = "とっくん" + c.unlock.n + "かいで かいほう";
+                else if (c.unlock.type === "metamon") condText = "メタモンとっくん" + c.unlock.n + "かいで かいほう";
                 else if (c.unlock.type === "ex") condText = "まぼろしの島クリアで かいほう";
                 else if (c.unlock.type === "master") condText = "九九マスターけんてい クリアで かいほう";
+                else if (c.unlock.type === "stage") condText = "「" + c.unlock.label + "」クリアで かいほう";
+                else if (c.unlock.type === "divtrain") condText = "イーブイとっくん" + c.unlock.n + "かいで かいほう";
             }
             html += '<div class="dress-card' + (unlocked ? " dress-unlocked" : " dress-locked") +
                     (selected ? " dress-selected" : "") + '" data-key="' + c.key + '">' +
@@ -779,11 +972,49 @@ const ReportScreen = {
             }
         }
 
+        // わり算: わる数別の正答率・苦手
+        const divEl = document.getElementById("report-div-dans");
+        if (divEl) {
+            let html = "<table class='report-table'><tr><th>わる数</th><th>正答率</th><th>回答数</th></tr>";
+            for (let d = 1; d <= 9; d++) {
+                const s = GameState.getDanStats(d, "d");
+                const total = s.correct + s.wrong;
+                let rateText = "—", cls = "";
+                if (s.rate !== null) {
+                    rateText = s.rate + "%";
+                    cls = s.rate >= 80 ? "rate-good" : (s.rate >= 60 ? "rate-mid" : "rate-bad");
+                }
+                html += "<tr><td>÷" + d + "</td><td class='" + cls + "'>" + rateText + "</td><td>" + total + "</td></tr>";
+            }
+            divEl.innerHTML = html + "</table>";
+        }
+        const divWeakEl = document.getElementById("report-div-weak");
+        if (divWeakEl) {
+            const weak = GameState.getWeakFacts(10, "d");
+            if (weak.length === 0) {
+                divWeakEl.innerHTML = "<p>苦手な問題は ありません！🎉</p>";
+            } else {
+                divWeakEl.innerHTML = "<ul class='report-weak-list'>" + weak.map(w =>
+                    "<li><b>" + (w.a * w.b) + "÷" + w.a + "＝" + w.b + "</b>（誤答" + GameState.facts[w.key].w + "回）</li>").join("") + "</ul>";
+            }
+        }
+
         // マスター状況
         const sumEl = document.getElementById("report-summary");
         if (sumEl) {
+            // あまりの ある わり算（キー r*）と 10〜12の段（10以上を ふくむ かけざん）の まとめ
+            const agg = (test) => {
+                let c = 0, w = 0;
+                Object.keys(GameState.facts).forEach(k => { if (test(k)) { c += GameState.facts[k].c; w += GameState.facts[k].w; } });
+                return (c + w) > 0 ? Math.round(c / (c + w) * 100) + "%（" + (c + w) + "問）" : "—";
+            };
+            const isBig = (k) => { const m = k.match(/^(\d+)x(\d+)$/); return !!m && (+m[1] > 9 || +m[2] > 9); };
             sumEl.innerHTML = "九九マスター状況: <b>金" + GameState.countGold() + "</b> / 銀以上" +
-                GameState.countSilverPlus() + " / 81マス　　合計⭐" + GameState.totalStars();
+                GameState.countSilverPlus() + " / 81マス<br>" +
+                "わり算マスター状況: <b>金" + GameState.countGold("d") + "</b> / 銀以上" +
+                GameState.countSilverPlus("d") + " / 81マス<br>" +
+                "10〜12の段の正答率: " + agg(isBig) + "　あまりのあるわり算: " + agg(k => k.charAt(0) === "r") +
+                "<br>合計⭐" + GameState.totalStars();
         }
     },
 

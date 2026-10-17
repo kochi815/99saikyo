@@ -14,7 +14,8 @@ const StorageManager = {
             costumes: GameState.costumes,
             metamon: GameState.metamon,
             settings: GameState.settings,
-            flags: GameState.flags
+            flags: GameState.flags,
+            div: GameState.div
         };
         try {
             localStorage.setItem(this.saveKey, JSON.stringify(data));
@@ -45,8 +46,14 @@ const StorageManager = {
             }
             if (!GameState.costumes.selected) GameState.costumes.selected = "pika";
             GameState.metamon       = data.metamon || { lastClearDate: null, clearCount: 0 };
-            GameState.settings      = Object.assign({ se: true, bgm: true, slow: false }, data.settings || {});
-            GameState.flags         = Object.assign({ endingSeen: false, exCleared: false, saikyoouSeen: false, masterCleared: false, masterSeen: false }, data.flags || {});
+            GameState.settings      = Object.assign({ se: true, bgm: true, slow: false, mode: "kake" }, data.settings || {});
+            GameState.flags         = Object.assign({ endingSeen: false, exCleared: false, saikyoouSeen: false, masterCleared: false, masterSeen: false,
+                                                      megaCleared: false, megaSeen: false, divMasterCleared: false, divMasterSeen: false,
+                                                      remCleared: false, remSeen: false }, data.flags || {});
+            const div = data.div || {};
+            GameState.div = Object.assign({ partner: null, introSeen: false, evoSeen: 0 }, div);
+            GameState.div.training = Object.assign({ lastClearDate: null, clearCount: 0, todayDate: null, todayKey: null }, div.training || {});
+            if (!GameConfig.partners[GameState.div.partner]) GameState.div.partner = null;
             return true;
         } catch (e) {
             console.error("セーブデータの読み込みに失敗しました", e);

@@ -3,6 +3,17 @@
 
 const UIManager = {
 
+    // ひっさつわざ（かけざん=10まんボルト / わりざん=パートナーのわざ）と フェイス表示
+    specialMove: { icon: "⚡", name: "10まんボルト" },
+    hideFace: false,
+
+    setBattleMode: function(mode) {
+        this.specialMove = GameState.specialMove(mode);
+        this.hideFace = (mode === "wari");
+        const face = document.getElementById("battle-face");
+        if (face) face.style.display = this.hideFace ? "none" : "";
+    },
+
     // ==========================================
     //  敵HPバー
     // ==========================================
@@ -69,12 +80,13 @@ const UIManager = {
         if (!fill) return;
         const pct = Math.min(100, n / max * 100);
         fill.style.width = pct + "%";
+        const mv = this.specialMove;
         if (n >= max) {
             fill.classList.add("volt-max");
-            if (label) label.textContent = "⚡10まんボルト じゅんびOK！";
+            if (label) label.textContent = mv.icon + mv.name + " じゅんびOK！";
         } else {
             fill.classList.remove("volt-max");
-            if (label) label.textContent = "⚡ゲージ " + n + "/" + max;
+            if (label) label.textContent = mv.icon + "ゲージ " + n + "/" + max;
         }
     },
 
@@ -127,7 +139,7 @@ const UIManager = {
     // ==========================================
     showFace: function(type) {
         const el = document.getElementById("battle-face");
-        if (!el) return;
+        if (!el || this.hideFace) return;
         const list = GameConfig.faces[type];
         if (!list || list.length === 0) return;
         el.src = "img/" + list[Math.floor(Math.random() * list.length)];
@@ -159,7 +171,7 @@ const UIManager = {
         const yomiEl = document.getElementById("battle-question-yomi");
         const hintEl = document.getElementById("battle-hint");
         const wrap = document.getElementById("battle-options");
-        if (qEl) { qEl.innerHTML = "？ × ？ = <span class='q-mark'>?</span>"; qEl.classList.remove("q-long"); }
+        if (qEl) { qEl.innerHTML = "&nbsp;"; qEl.classList.remove("q-long", "q-xlong"); }
         if (yomiEl) yomiEl.textContent = "";
         if (hintEl) hintEl.style.display = "none";
         if (wrap) { wrap.innerHTML = ""; wrap.classList.remove("options-two"); }
@@ -168,24 +180,39 @@ const UIManager = {
     renderQuestion: function(q, hintText) {
         const qEl = document.getElementById("battle-question");
         const yomiEl = document.getElementById("battle-question-yomi");
-        const c = q.a * q.b;
+        const c = q.c;
+        const M = "<span class='q-mark'>?</span>";
+        let html, caption, cls = "";
+        switch (q.type) {
+            case "missing":
+                html = (q.missing === "a") ? M + " × " + q.b + " = " + c : q.a + " × " + M + " = " + c;
+                caption = "？に はいる かずは？"; cls = "q-long"; break;
+            case "reverse":
+                html = c + " = " + M + " × " + M;
+                caption = "こたえが " + c + " に なる しきは？"; cls = "q-long"; break;
+            case "div":
+                html = c + " ÷ " + q.a + " = " + M;
+                caption = q.yomiQ; break;
+            case "divMissing":
+                html = (q.missing === "a") ? c + " ÷ " + M + " = " + q.b : M + " ÷ " + q.a + " = " + q.b;
+                caption = "？に はいる かずは？"; cls = "q-long"; break;
+            case "divReverse":
+                html = M + " ÷ " + M + " = " + q.b;
+                caption = "こたえが " + q.b + " に なる わりざんは？"; cls = "q-long"; break;
+            case "rem":
+                html = c + " ÷ " + q.a + " = " + M + " あまり " + M;
+                caption = q.yomiQ + "（あまりも こたえよう）"; cls = "q-xlong"; break;
+            default:
+                html = q.a + " × " + q.b + " = " + M;
+                caption = q.yomiQ;
+                if (q.big) cls = "q-long";
+        }
         if (qEl) {
-            if (q.type === "missing") {
-                qEl.innerHTML = (q.missing === "a")
-                    ? "<span class='q-mark'>?</span> × " + q.b + " = " + c
-                    : q.a + " × <span class='q-mark'>?</span> = " + c;
-            } else if (q.type === "reverse") {
-                qEl.innerHTML = c + " = <span class='q-mark'>?</span> × <span class='q-mark'>?</span>";
-            } else {
-                qEl.innerHTML = q.a + " × " + q.b + " = <span class='q-mark'>?</span>";
-            }
-            qEl.classList.toggle("q-long", q.type !== "normal");
+            qEl.innerHTML = html;
+            qEl.classList.remove("q-long", "q-xlong");
+            if (cls) qEl.classList.add(cls);
         }
-        if (yomiEl) {
-            if (q.type === "missing") yomiEl.textContent = "？に はいる かずは？";
-            else if (q.type === "reverse") yomiEl.textContent = "こたえが " + c + " に なる しきは？";
-            else yomiEl.textContent = q.yomiQ;
-        }
+        if (yomiEl) yomiEl.textContent = caption;
 
         const hintEl = document.getElementById("battle-hint");
         if (hintEl) {
@@ -205,7 +232,7 @@ const UIManager = {
             btn.className = "option-btn";
             btn.dataset.value = v;
             btn.innerHTML = '<span class="ball-icon"></span><span class="option-num' +
-                            (q.type === "reverse" ? " option-shiki" : "") + '">' +
+                            QuestionGenerator.optionClass(q) + '">' +
                             QuestionGenerator.optionLabel(q, v) + "</span>";
             btn.addEventListener("click", () => BattleManager.onAnswer(i, v, btn));
             wrap.appendChild(btn);
@@ -238,12 +265,14 @@ const UIManager = {
     },
 
     // 唱え読みテロップ
-    showYomiTelop: function(q, show) {
+    showYomiTelop: function(q, show, extra) {
         const el = document.getElementById("battle-yomi-telop");
         if (!el) return;
         if (show) {
-            el.innerHTML = '<div class="yomi-answer">' + q.a + " × " + q.b + " = <b>" + (q.a * q.b) + "</b></div>" +
-                           '<div class="yomi-text">「' + q.yomi + "」</div>" +
+            const d = QuestionGenerator.describe(q);
+            el.innerHTML = (extra ? '<div class="yomi-extra">' + extra + "</div>" : "") +
+                           '<div class="yomi-answer">' + d.shiki + "</div>" +
+                           (d.note ? '<div class="yomi-text">' + d.note + "</div>" : "") +
                            '<div class="yomi-guide">ひかっている こたえを タップ！</div>';
             el.style.display = "block";
         } else {
@@ -260,21 +289,45 @@ const UIManager = {
         if (img) {
             img.src = "img/" + enemy.img;
             // 前のバトルの演出クラス（撃破で透明化 等）を必ずリセット
-            img.classList.remove("enemy-rage", "enemy-defeated", "enemy-hit", "enemy-attack");
+            img.classList.remove("enemy-rage", "enemy-dynamax", "enemy-mega", "enemy-defeated", "enemy-hit", "enemy-attack", "enemy-transform");
         }
         if (name) name.textContent = enemy.key;
     },
 
-    setEnemyRage: function(rageImg) {
+    // 変身（おこる / キョダイマックス / メガシンカ / しんか / おめんチェンジ）
+    //   style: "rage"(既定) / "dynamax" / "mega" / "evolve" / "mask"
+    setEnemyRage: function(rageImg, style, newName) {
         const img = document.getElementById("enemy-img");
         if (!img) return;
         if (rageImg) img.src = "img/" + rageImg;
-        img.classList.add("enemy-rage");
+        const cls = { rage: "enemy-rage", dynamax: "enemy-dynamax", mega: "enemy-mega" }[style || "rage"];
+        if (cls) img.classList.add(cls);
+        img.classList.remove("enemy-transform");
+        void img.offsetWidth;
+        img.classList.add("enemy-transform");
+        const onEnd = (e) => {
+            if (e.animationName !== "enemyTransform") return;
+            img.classList.remove("enemy-transform");
+            img.removeEventListener("animationend", onEnd);
+        };
+        img.addEventListener("animationend", onEnd);
+        // animationend が こない場合（画面が かくれている 等）の ほけん
+        BattleManager._later(900, () => {
+            img.classList.remove("enemy-transform");
+            img.removeEventListener("animationend", onEnd);
+        });
+        if (newName) {
+            const name = document.getElementById("enemy-name");
+            if (name) name.textContent = newName;
+        }
     },
 
-    // パートナーの見た目
-    setPartner: function() {
+    // パートナーの見た目（かけざん=ピカチュウ / わりざん=パルデアの パートナー）
+    setPartner: function(mode) {
         const img = document.getElementById("player-img");
-        if (img) img.src = GameState.getPartnerImg();
+        if (!img) return;
+        img.src = GameState.getPartnerImg(mode);
+        img.classList.remove("partner-evo-0", "partner-evo-1", "partner-evo-2");
+        if (mode === "wari") img.classList.add("partner-evo-" + GameState.partnerLevel());
     }
 };

@@ -292,7 +292,7 @@ button {
 
 #battle-commentary {
     position: absolute;
-    top: 40px;
+    top: 112px;
     left: 50%;
     transform: translateX(-50%) scale(0);
     z-index: 60;
@@ -331,28 +331,55 @@ button {
 
 #battle-enemy-area {
     position: absolute;
-    top: 8px;
+    top: 22px;
     right: 10px;
     text-align: right;
 }
 #enemy-img {
+    --es: 1;
     height: 110px;
     max-width: 150px;
     object-fit: contain;
     margin-top: 4px;
     filter: drop-shadow(0 6px 6px rgba(0,0,0,0.3));
-    transition: transform 0.3s, filter 0.3s;
+    transform: scale(var(--es));
+    transform-origin: 80% 100%;
+    transition: transform 0.5s, filter 0.3s;
 }
+#enemy-img.enemy-rage { --es: 1.2; }
+#enemy-img.enemy-dynamax { --es: 1.3; }
+#enemy-img.enemy-mega { --es: 1.15; }
 .enemy-rage {
-    transform: scale(1.25);
     filter: drop-shadow(0 0 14px rgba(255,60,40,0.9)) !important;
 }
-.enemy-defeated {
+/* キョダイマックス: おおきく・あかい オーラ */
+.enemy-dynamax {
+    filter: drop-shadow(0 0 10px rgba(255,30,90,0.95)) drop-shadow(0 0 22px rgba(255,80,40,0.8)) !important;
+}
+/* メガシンカ: にじいろの かがやき */
+.enemy-mega {
+    animation: megaGlow 2.4s linear infinite;
+}
+@keyframes megaGlow {
+    0%   { filter: drop-shadow(0 0 12px rgba(255,80,200,0.9)); }
+    33%  { filter: drop-shadow(0 0 12px rgba(80,200,255,0.9)); }
+    66%  { filter: drop-shadow(0 0 12px rgba(255,230,80,0.9)); }
+    100% { filter: drop-shadow(0 0 12px rgba(255,80,200,0.9)); }
+}
+/* 変身の しゅんかんの フラッシュ */
+.enemy-transform { animation: enemyTransform 0.8s ease-out; }
+.enemy-mega.enemy-transform { animation: enemyTransform 0.8s ease-out, megaGlow 2.4s linear 0.8s infinite; }
+@keyframes enemyTransform {
+    0%   { filter: brightness(4) saturate(0); transform: scale(calc(var(--es) * 0.6)); }
+    60%  { filter: brightness(2); transform: scale(calc(var(--es) * 1.1)); }
+    100% { transform: scale(var(--es)); }
+}
+#enemy-img.enemy-defeated {
     animation: enemyDefeat 1.2s ease-in forwards;
 }
 @keyframes enemyDefeat {
-    0% { transform: scale(1); opacity: 1; }
-    30% { transform: scale(1.1) rotate(-6deg); }
+    0% { transform: scale(var(--es)); opacity: 1; }
+    30% { transform: scale(calc(var(--es) * 1.1)) rotate(-6deg); }
     100% { transform: scale(0) rotate(20deg); opacity: 0; }
 }
 
@@ -393,7 +420,7 @@ button {
 }
 #player-img {
     height: 92px;
-    max-width: 120px;
+    max-width: 130px;
     object-fit: contain;
     transform: scaleX(-1);
     filter: drop-shadow(0 5px 5px rgba(0,0,0,0.3));
@@ -405,23 +432,35 @@ button {
     50% { transform: scaleX(-1) translateX(-6px); }
     75% { transform: scaleX(-1) translateX(4px); }
 }
+/* わりざんの パートナー: しんかするほど おおきく */
+#player-img.partner-evo-0 { height: 80px; }
+#player-img.partner-evo-1 { height: 92px; }
+#player-img.partner-evo-2 { height: 100px; }
+/* 敵の名前・HPは フィールド左上に固定（見方の画像・敵の画像と かさならないように） */
+#battle-field > .enemy-info {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    max-width: calc(100% - 150px);
+    z-index: 2;
+}
+#battle-field > .enemy-info .fighter-name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .enemy-hit { animation: enemyHitAnim 0.6s; }
 @keyframes enemyHitAnim {
-    0%, 100% { transform: translateX(0); filter: none; }
-    20% { transform: translateX(-10px); filter: brightness(2.2); }
-    45% { transform: translateX(7px); }
-    70% { transform: translateX(-4px); }
-}
-.enemy-rage.enemy-hit { animation: enemyHitAnimRage 0.6s; }
-@keyframes enemyHitAnimRage {
-    0%, 100% { transform: scale(1.25) translateX(0); }
-    20% { transform: scale(1.25) translateX(-10px); filter: brightness(2.2); }
-    45% { transform: scale(1.25) translateX(7px); }
+    0%, 100% { transform: scale(var(--es)) translateX(0); }
+    20% { transform: scale(var(--es)) translateX(-10px); filter: brightness(2.2); }
+    45% { transform: scale(var(--es)) translateX(7px); }
+    70% { transform: scale(var(--es)) translateX(-4px); }
 }
 .enemy-attack { animation: enemyAttackAnim 0.5s; }
 @keyframes enemyAttackAnim {
-    0%, 100% { transform: translate(0, 0); }
-    40% { transform: translate(-46px, 40px) scale(1.12); }
+    0%, 100% { transform: scale(var(--es)) translate(0, 0); }
+    40% { transform: scale(calc(var(--es) * 1.12)) translate(-46px, 40px); }
 }
 
 #battle-face {
@@ -542,7 +581,9 @@ button {
     letter-spacing: 3px;
 }
 #battle-question.q-long { font-size: 36px; letter-spacing: 1px; }
+#battle-question.q-xlong { font-size: 28px; letter-spacing: 0; }
 .option-shiki { font-size: 26px; letter-spacing: 1px; }
+.option-rem { font-size: 21px; letter-spacing: 0; white-space: nowrap; }
 .parade-img.parade-legend { height: 96px; }
 .q-mark { color: #e53935; }
 
@@ -663,6 +704,7 @@ button {
 .yomi-answer b { color: #ffe14d; font-size: 38px; }
 .yomi-text { font-size: 20px; color: #8fe3ff; font-weight: bold; margin: 6px 0; }
 .yomi-guide { font-size: 14px; color: #ffd9a0; animation: guideBlink 1s infinite; }
+.yomi-extra { font-size: 15px; font-weight: bold; color: #ff8a80; margin-bottom: 4px; }
 @keyframes guideBlink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.45; }
@@ -813,6 +855,7 @@ button {
     gap: 12px;
     margin: 8px 0 16px;
 }
+.result-btns .big-btn { padding: 14px 22px; white-space: nowrap; }
 
 /* ==========================================
    敗北画面
@@ -837,7 +880,7 @@ button {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: safe center;
     gap: 14px;
     text-align: center;
     background:
@@ -847,6 +890,7 @@ button {
 #ending-title { font-size: 26px; color: #ffe14d; text-shadow: 2px 2px 0 rgba(0,0,0,0.4); }
 
 #ending-parade-wrap {
+    flex-shrink: 0;
     width: 100%;
     overflow: hidden;
     background: rgba(0,0,0,0.25);
@@ -1083,3 +1127,335 @@ button {
 /* スクロールバー（子ども向けに太めで見やすく） */
 .screen::-webkit-scrollbar { width: 6px; }
 .screen::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+
+/* ==========================================
+   わりざんモード・メガシンカ（追加）
+   ========================================== */
+
+/* --- モードの タブ --- */
+#map-mode-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.mode-tab {
+    flex: 1;
+    padding: 10px 4px;
+    font-size: 17px;
+    font-weight: bold;
+    color: #cfd8ff;
+    background: rgba(255,255,255,0.10);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 14px;
+}
+.mode-tab.tab-active {
+    color: #5a3d00;
+    background: linear-gradient(180deg, #ffe14d, #ffb300);
+    border-color: #fff3b0;
+    box-shadow: 0 0 10px rgba(255,200,0,0.5);
+}
+#map-screen.mode-wari .mode-tab.tab-active {
+    color: #fff;
+    background: linear-gradient(180deg, #26c6da, #00897b);
+    border-color: #b2fff4;
+    box-shadow: 0 0 10px rgba(38,198,218,0.6);
+}
+.mode-tab.tab-locked { opacity: 0.6; }
+.tab-new {
+    display: inline-block;
+    font-size: 11px;
+    background: #ff5a4d;
+    color: #fff;
+    border-radius: 8px;
+    padding: 1px 6px;
+    vertical-align: middle;
+    animation: metamonPulse 1s infinite;
+}
+
+/* わりざんモードの マップは みどり系の そら */
+#map-screen.mode-wari {
+    background: linear-gradient(180deg, #0f5e6e 0%, #134a5e 60%, #0d2f45 100%);
+}
+#map-screen.mode-wari .map-world-title { color: #7fffd4; border-left-color: #7fffd4; }
+#map-screen.mode-wari .node-next { border-color: #7fffd4; background: rgba(127,255,212,0.14); }
+.node-evo { display: block; font-size: 12px; color: #ffe14d; font-weight: bold; }
+
+/* パートナー ヘッダー */
+.partner-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+.partner-head img {
+    height: 58px;
+    width: 58px;
+    object-fit: contain;
+    background: rgba(255,255,255,0.9);
+    border-radius: 50%;
+    border: 3px solid var(--pc, #fff);
+    padding: 3px;
+}
+.partner-head-name { font-size: 17px; font-weight: bold; text-align: left; }
+.partner-head-next { font-size: 12px; color: #cfd8ff; text-align: left; }
+.partner-type {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 8px;
+    background: var(--pc, #888);
+    color: #fff;
+    vertical-align: middle;
+}
+
+/* マップの おしらせ */
+#map-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.82);
+    color: #ffe14d;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 10px 18px;
+    border-radius: 18px;
+    width: max-content;
+    max-width: 90%;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 95;
+}
+#map-toast.toast-show { animation: toastShow 2.6s ease-out forwards; }
+@keyframes toastShow {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    10%, 85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; }
+}
+
+/* --- ヒント（わりざん・あまり） --- */
+.hint-chips { margin-top: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; }
+.hint-chip {
+    display: inline-block;
+    min-width: 26px;
+    padding: 1px 5px;
+    font-size: 14px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #81c784;
+    color: #1e6f2e;
+}
+.hint-chip-last { background: #fff3c4; border-color: #ffb300; color: #7a4c00; }
+.hint-chip-over { text-decoration: line-through; color: #c62828; border-color: #ef9a9a; background: #ffebee; }
+
+/* --- おぼえタイム（2れつ・わりざん・あまり） --- */
+.oboe-sub { font-size: 13px; color: #789; font-weight: normal; }
+.oboe-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.oboe-cell { display: flex; flex-direction: column; align-items: center; }
+.oboe-row2 .oboe-yomi { font-size: 11px; }
+.oboe-rem { text-align: center; line-height: 1.5; }
+.rem-line { font-size: 16px; margin: 4px 0; }
+.rem-visual { margin: 6px 0; font-size: 18px; }
+.rem-group {
+    display: inline-block;
+    border: 2px solid #81c784;
+    border-radius: 10px;
+    padding: 0 3px;
+    margin: 2px;
+    background: #f1f8e9;
+}
+.rem-left {
+    display: inline-block;
+    border: 2px dashed #ff7043;
+    border-radius: 10px;
+    padding: 0 3px;
+    margin: 2px;
+    background: #fff3e0;
+}
+.rem-shiki { font-size: 26px; font-weight: bold; color: #e65100; margin: 6px 0; }
+.rem-note { font-size: 15px; font-weight: bold; color: #c62828; margin-top: 6px; }
+.rem-tip { font-size: 13px; color: #555; margin-top: 4px; }
+
+/* --- わりざんの せつめい --- */
+#divintro-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    background: linear-gradient(180deg, #0f5e6e 0%, #134a5e 60%, #0d2f45 100%);
+}
+.divintro-guide { display: flex; align-items: center; gap: 8px; }
+.divintro-mew { height: 80px; animation: crownFloat 2s ease-in-out infinite; }
+.divintro-bubble {
+    background: #fff;
+    color: #223;
+    border-radius: 16px;
+    padding: 8px 14px;
+    font-weight: bold;
+    font-size: 15px;
+    text-align: left;
+    position: relative;
+}
+.divintro-card {
+    background: #fff;
+    color: #223;
+    border-radius: 18px;
+    padding: 12px 14px;
+    width: min(100%, 440px);
+}
+.divintro-q { font-size: 16px; margin-bottom: 6px; }
+.divintro-pile { min-height: 30px; font-size: 22px; letter-spacing: 1px; }
+.divintro-groups { display: flex; justify-content: space-around; margin: 4px 0 6px; }
+.divintro-group { display: flex; flex-direction: column; align-items: center; width: 31%; }
+.divintro-group img { height: 60px; }
+.divintro-basket {
+    min-height: 34px;
+    width: 100%;
+    font-size: 16px;
+    letter-spacing: -1px;
+    white-space: nowrap;
+    border: 2px dashed #b0bec5;
+    border-radius: 12px;
+    background: #f5f5f5;
+}
+.berry { display: inline-block; }
+.berry-out { animation: berryOut 0.35s ease-in both; }
+.berry-in  { animation: berryIn 0.35s ease-out both; }
+@keyframes berryOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.2) translateY(20px); } }
+@keyframes berryIn  { from { opacity: 0; transform: scale(0.2) translateY(-20px); } to { opacity: 1; transform: scale(1); } }
+.divintro-ans { font-size: 20px; margin: 4px 0; }
+.divintro-ans b { color: #e65100; font-size: 26px; }
+.divintro-shiki { font-size: 40px; font-weight: bold; color: #00796b; }
+.divintro-yomi { font-size: 14px; color: #555; }
+.divintro-kuku {
+    margin-top: 8px;
+    font-size: 16px;
+    background: #fff8e1;
+    border-radius: 12px;
+    padding: 6px;
+}
+.reveal { animation: revealIn 0.5s ease-out both; }
+.reveal-1 { animation-delay: 4.6s; }
+.reveal-2 { animation-delay: 5.3s; }
+.reveal-3 { animation-delay: 6.1s; }
+.reveal-4 { animation-delay: 6.8s; }
+@keyframes revealIn {
+    from { opacity: 0; transform: translateY(10px); visibility: hidden; }
+    to   { opacity: 1; transform: translateY(0); visibility: visible; }
+}
+
+/* --- パートナーえらび --- */
+#partner-lead { text-align: center; font-size: 16px; margin-bottom: 10px; }
+#partner-lead small { color: #cfd8ff; }
+#partner-grid { display: flex; flex-direction: column; gap: 10px; max-width: 460px; margin: 0 auto; }
+.partner-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.10);
+    border: 3px solid rgba(255,255,255,0.25);
+    border-radius: 18px;
+    padding: 10px;
+    cursor: pointer;
+}
+.partner-card:active { transform: scale(0.98); }
+.partner-selected { border-color: var(--pc); box-shadow: 0 0 14px var(--pc); background: rgba(255,255,255,0.18); }
+.partner-img {
+    height: 92px;
+    width: 92px;
+    object-fit: contain;
+    background: rgba(255,255,255,0.92);
+    border-radius: 16px;
+    padding: 4px;
+}
+.partner-info { flex: 1; text-align: left; }
+.partner-name { font-size: 20px; font-weight: bold; }
+.partner-move { font-size: 13px; color: #ffe; margin: 2px 0 4px; }
+.partner-line { display: flex; align-items: center; gap: 2px; }
+.evo-slot { display: inline-flex; background: rgba(255,255,255,0.85); border-radius: 8px; }
+.evo-mini { height: 34px; width: 34px; object-fit: contain; }
+.evo-mini.evo-unknown { filter: brightness(0); opacity: 0.55; }
+.evo-arrow { font-size: 10px; color: #cfd8ff; }
+.partner-badge {
+    position: absolute;
+    top: -9px;
+    right: 10px;
+    background: var(--pc);
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 2px 10px;
+}
+#partner-msg { text-align: center; font-size: 18px; font-weight: bold; color: #ffe14d; margin-top: 12px; min-height: 26px; }
+
+/* --- しんか --- */
+#evolve-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    background: radial-gradient(circle at 50% 45%, #3d5afe 0%, #1a237e 55%, #0b0f3a 100%);
+}
+#evolve-text { font-size: 22px; font-weight: bold; line-height: 1.6; min-height: 70px; }
+#evolve-text b { color: #ffe14d; }
+.evolve-stage {
+    width: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.35), rgba(255,255,255,0) 70%);
+}
+#evolve-img { height: 190px; width: 190px; object-fit: contain; }
+#evolve-img.evo-glow { animation: evoGlow 3s ease-in forwards; }
+@keyframes evoGlow {
+    0%   { filter: none; transform: scale(1); }
+    15%  { filter: brightness(0) invert(1); }
+    25%  { filter: none; }
+    40%  { filter: brightness(0) invert(1); transform: scale(1.1); }
+    50%  { filter: none; transform: scale(0.95); }
+    62%  { filter: brightness(0) invert(1); transform: scale(1.15); }
+    70%  { filter: brightness(0) invert(1); transform: scale(0.9); }
+    80%  { filter: brightness(0) invert(1); transform: scale(1.2); }
+    90%  { filter: brightness(0) invert(1); transform: scale(0.85); }
+    100% { filter: brightness(0) invert(1); transform: scale(1.1); }
+}
+#evolve-img.evo-pop { animation: evoPop 0.8s ease-out; }
+@keyframes evoPop {
+    0%   { filter: brightness(0) invert(1); transform: scale(1.3); }
+    60%  { filter: brightness(1.5); transform: scale(0.95); }
+    100% { filter: none; transform: scale(1); }
+}
+#evolve-sub { font-size: 17px; color: #ffe; min-height: 24px; }
+
+/* --- まけた時の パートナー --- */
+#defeat-pika.defeat-partner { height: 110px; filter: grayscale(0.6) brightness(0.8); }
+
+/* --- ずかんの グループ --- */
+.dex-group-title {
+    grid-column: 1 / -1;
+    margin: 10px 0 2px;
+    font-size: 15px;
+    font-weight: bold;
+    color: #ffe14d;
+    border-left: 5px solid #ffe14d;
+    padding-left: 8px;
+}
+.dex-group-count { font-size: 12px; color: #cfd8ff; }
+
+/* ステージ名が 長くても 1行に（全角幅フォントで 2行になり 下が はみ出すのを ふせぐ） */
+#battle-stage-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; margin-right: 8px; }
+.new-costume small { font-size: 11px; color: #cfd8ff; font-weight: normal; }

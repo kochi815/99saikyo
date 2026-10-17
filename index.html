@@ -24,8 +24,13 @@
 
     <!-- ================= マップ画面 ================= -->
     <div id="map-screen" class="screen" style="display:none;">
+        <div id="map-mode-tabs">
+            <button id="map-tab-kake" class="mode-tab">✖ かけざん</button>
+            <button id="map-tab-wari" class="mode-tab">➗ わりざん</button>
+        </div>
         <div class="map-header">
             <div id="map-badges"></div>
+            <div id="map-partner" style="display:none;"></div>
             <div id="map-stats"></div>
         </div>
         <div class="map-menu">
@@ -34,8 +39,49 @@
             <button id="map-dress-btn" class="menu-btn">🎀 きせかえ</button>
             <button id="map-metamon-btn" class="menu-btn"></button>
             <button id="map-settings-btn" class="menu-btn">⚙️ せってい</button>
+            <button id="map-help-btn" class="menu-btn" style="display:none;">❓ わりざんって？</button>
         </div>
         <div id="map-stages"></div>
+        <div id="map-toast"></div>
+    </div>
+
+    <!-- ================= わりざんの せつめい ================= -->
+    <div id="divintro-screen" class="screen" style="display:none;">
+        <div class="divintro-guide">
+            <img class="divintro-mew" src="img/ミュウ.png" alt="ミュウ">
+            <div class="divintro-bubble">ぼくは ミュウ！<br>わりざんの せかいへ ようこそ！</div>
+        </div>
+        <div class="divintro-card">
+            <div class="divintro-q">12この きのみを 3びきで<br><b>おなじ かずずつ</b> わけると、1ぴき なんこ？</div>
+            <div id="divintro-pile" class="divintro-pile"></div>
+            <div id="divintro-groups" class="divintro-groups"></div>
+            <div class="reveal reveal-1 divintro-ans">1ぴき <b>4こ</b>！</div>
+            <div class="reveal reveal-2">
+                <div class="divintro-shiki">12 ÷ 3 = 4</div>
+                <div class="divintro-yomi">「じゅうに わる さん は よん」<br>÷ は「わる」と よむよ</div>
+            </div>
+            <div class="reveal reveal-3 divintro-kuku">こたえは <b>3のだんの 九九</b>で みつかる！<br>3 × <span class="q-mark">4</span> = 12 「さんし じゅうに」</div>
+        </div>
+        <button id="divintro-next-btn" class="big-btn reveal reveal-4">わかった！</button>
+    </div>
+
+    <!-- ================= パートナーえらび ================= -->
+    <div id="partner-screen" class="screen" style="display:none;">
+        <div class="screen-header">
+            <h2>🤝 パートナー</h2>
+            <button id="partner-back-btn" class="back-btn">← もどる</button>
+        </div>
+        <div id="partner-lead"></div>
+        <div id="partner-grid"></div>
+        <div id="partner-msg"></div>
+    </div>
+
+    <!-- ================= しんか ================= -->
+    <div id="evolve-screen" class="screen" style="display:none;">
+        <div id="evolve-text"></div>
+        <div class="evolve-stage"><img id="evolve-img" src="" alt=""></div>
+        <div id="evolve-sub"></div>
+        <button id="evolve-close-btn" class="big-btn" style="visibility:hidden;">やったー！</button>
     </div>
 
     <!-- ================= バトル画面 ================= -->
@@ -49,15 +95,16 @@
         <div id="battle-commentary"></div>
 
         <div id="battle-field">
+            <!-- 敵の なまえ・HP（フィールド左上） -->
+            <div class="fighter-info enemy-info">
+                <span id="enemy-name" class="fighter-name">？？？</span>
+                <div class="hp-bar-wrap">
+                    <div class="hp-bar"><div id="enemy-hp-fill" class="hp-fill"></div></div>
+                    <span id="enemy-hp-text" class="hp-text">0/0</span>
+                </div>
+            </div>
             <!-- 敵エリア -->
             <div id="battle-enemy-area">
-                <div class="fighter-info">
-                    <span id="enemy-name" class="fighter-name">？？？</span>
-                    <div class="hp-bar-wrap">
-                        <div class="hp-bar"><div id="enemy-hp-fill" class="hp-fill"></div></div>
-                        <span id="enemy-hp-text" class="hp-text">0/0</span>
-                    </div>
-                </div>
                 <img id="enemy-img" src="img/ピチュー01.gif" alt="てき">
             </div>
 
@@ -190,7 +237,7 @@
     <!-- ================= くくマップ ================= -->
     <div id="kuku-screen" class="screen" style="display:none;">
         <div class="screen-header">
-            <h2>🗺️ くくマップ</h2>
+            <h2 id="kuku-title">🗺️ くくマップ</h2>
             <button id="kuku-back-btn" class="back-btn">← もどる</button>
         </div>
         <div id="kuku-stats"></div>
@@ -242,6 +289,10 @@
         <div id="report-dans"></div>
         <h3>苦手な問題 ワースト10</h3>
         <div id="report-weak"></div>
+        <h3>わり算: わる数別の正答率</h3>
+        <div id="report-div-dans"></div>
+        <h3>わり算の苦手 ワースト10</h3>
+        <div id="report-div-weak"></div>
         <p class="report-note">※「くくマップ」の画面でも、81マスの習熟状況（金＝3秒以内に正解3回）が確認できます。</p>
     </div>
 
@@ -274,6 +325,7 @@
 <div id="wipe-vs" class="wipe-vs">VS</div>
 
 <script src="config.js"></script>
+<script src="config-div.js"></script>
 <script src="state.js"></script>
 <script src="storage.js"></script>
 <script src="questions.js"></script>
@@ -283,6 +335,7 @@
 <script src="ui.js"></script>
 <script src="battle.js"></script>
 <script src="screens.js"></script>
+<script src="divmode.js"></script>
 <script src="main.js"></script>
 </body>
 </html>

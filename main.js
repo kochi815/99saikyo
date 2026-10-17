@@ -7,6 +7,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- 初期化 ---
     SoundManager.init();
     StorageManager.load();
+    // パートナーは 3びき いっしょに しんかする → いまの段階までを 3系統とも 図鑑に（前のバージョンの セーブ用）
+    if (GameState.div.partner) {
+        GameConfig.partnerOrder.forEach(k => GameState.registerPartnerForms(k));
+    }
     SoundManager.setSEEnabled(GameState.settings.se);
     SoundManager.setBGMEnabled(GameState.settings.bgm);
 
@@ -20,12 +24,25 @@ document.addEventListener("DOMContentLoaded", () => {
     // タイトル
     bind("title-start-btn", () => TitleScreen.start());
 
-    // マップのメニュー
+    // マップのモード切替
+    bind("map-tab-kake", () => MapScreen.setMode("kake"));
+    bind("map-tab-wari", () => MapScreen.setMode("wari"));
+
+    // マップのメニュー（わりざんモードでは パートナー・イーブイとっくん）
     bind("map-kuku-btn",    () => KukuScreen.show(["map-screen"]));
     bind("map-dex-btn",     () => DexScreen.show(["map-screen"]));
-    bind("map-dress-btn",   () => DressScreen.show(["map-screen"]));
+    bind("map-dress-btn",   () => {
+        if (MapScreen.currentMode() === "wari") PartnerScreen.show(["map-screen"], false);
+        else DressScreen.show(["map-screen"]);
+    });
     bind("map-settings-btn",() => SettingsScreen.show(["map-screen"]));
-    bind("map-metamon-btn", () => MapScreen.startMetamon());
+    bind("map-metamon-btn", () => MapScreen.startTraining());
+    bind("map-help-btn",    () => DivIntroScreen.show(["map-screen"]));
+
+    // わりざんモード
+    bind("divintro-next-btn", () => DivIntroScreen.next());
+    bind("partner-back-btn",  () => PartnerScreen.back());
+    bind("evolve-close-btn",  () => EvolveScreen.close());
 
     // バトル
     bind("battle-quit-btn", () => BattleManager.quitBattle());
